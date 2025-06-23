@@ -61,7 +61,7 @@ def info() -> None:
 # Import commands
 from gh_toolkit.commands.invite import accept_invitations, leave_repositories
 from gh_toolkit.commands.page import generate_page
-from gh_toolkit.commands.repo import extract_repos, list_repos, health_check
+from gh_toolkit.commands.repo import extract_repos, list_repos, health_check, clone_repos
 from gh_toolkit.commands.site import generate_site
 from gh_toolkit.commands.tag import tag_repos
 
@@ -70,6 +70,7 @@ repo_app.command("list")(list_repos)
 repo_app.command("extract")(extract_repos)
 repo_app.command("tag")(tag_repos)
 repo_app.command("health")(health_check)
+repo_app.command("clone")(clone_repos)
 
 # Invite commands
 invite_app.command("accept")(accept_invitations)

@@ -33,6 +33,7 @@ class TestCLIIntegration:
         assert "extract" in result.stdout
         assert "tag" in result.stdout
         assert "health" in result.stdout
+        assert "clone" in result.stdout
     
     def test_invite_help(self):
         """Test invite subcommand help."""
@@ -60,7 +61,7 @@ class TestCLIIntegration:
         
         assert result.exit_code == 0
         assert "gh-toolkit version" in result.stdout
-        assert "0.6.0" in result.stdout
+        assert "0.9.0" in result.stdout
     
     def test_info_command(self):
         """Test info command."""
@@ -70,7 +71,7 @@ class TestCLIIntegration:
         assert result.exit_code == 0
         assert "gh-toolkit Information" in result.stdout
         assert "Version" in result.stdout
-        assert "0.6.0" in result.stdout
+        assert "0.9.0" in result.stdout
     
     def test_repo_list_missing_token(self, no_env_vars):
         """Test repo list command without GitHub token."""
@@ -420,3 +421,310 @@ class TestCLIIntegration:
         
         assert result.exit_code == 1
         assert "Repository must be in 'owner/repo' format" in result.stdout
+
+    def test_repo_clone_help(self):
+        """Test repo clone command help."""
+        runner = CliRunner()
+        result = runner.invoke(app, ["repo", "clone", "--help"])
+        
+        assert result.exit_code == 0
+        assert "Clone GitHub repositories" in result.stdout
+        assert "--target-dir" in result.stdout
+        assert "--parallel" in result.stdout
+        assert "--branch" in result.stdout
+        assert "--depth" in result.stdout
+        assert "--dry-run" in result.stdout
+
+    def test_repo_clone_invalid_format(self):
+        """Test clone command with invalid repository format."""
+        runner = CliRunner()
+        result = runner.invoke(app, ["repo", "clone", "invalid-format"])
+        
+        assert result.exit_code == 1
+        assert "Error:" in result.stdout
+
+    def test_repo_clone_single_repo_dry_run(self, tmp_path):
+        """Test cloning single repository in dry-run mode."""
+        target_dir = tmp_path / "repos"
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", "microsoft/vscode",
+            "--target-dir", str(target_dir),
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        assert "Dry run mode" in result.stdout
+        assert "Clone Preview" in result.stdout
+        assert "microsoft/vscode" in result.stdout
+        assert "Would clone" in result.stdout
+
+    def test_repo_clone_file_input_dry_run(self, tmp_path):
+        """Test cloning from file input in dry-run mode."""
+        # Create test repo list file
+        repo_file = tmp_path / "repos.txt"
+        repo_file.write_text("microsoft/vscode\nfacebook/react\n# Comment\n\npython/cpython\n")
+        
+        target_dir = tmp_path / "repos"
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", str(repo_file),
+            "--target-dir", str(target_dir),
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        assert "Reading repository list" in result.stdout
+        assert "Found 3 repository(ies) to clone" in result.stdout
+        assert "Clone Preview" in result.stdout
+        assert "microsoft/vscode" in result.stdout
+        assert "facebook/react" in result.stdout
+        assert "python/cpython" in result.stdout
+
+    def test_repo_clone_with_options_dry_run(self, tmp_path):
+        """Test clone command with various options in dry-run mode."""
+        target_dir = tmp_path / "custom_repos"
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", "microsoft/vscode",
+            "--target-dir", str(target_dir),
+            "--branch", "main",
+            "--depth", "1",
+            "--parallel", "2",
+            "--ssh",
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        assert "Target directory:" in result.stdout
+        assert str(target_dir) in result.stdout
+        assert "Parallel operations: 2" in result.stdout
+        assert "Branch: main" in result.stdout
+        assert "Clone depth: 1" in result.stdout
+        assert "git@github.com:microsof" in result.stdout  # Truncated in table
+
+    def test_repo_clone_force_https_dry_run(self, tmp_path):
+        """Test clone command forcing HTTPS in dry-run mode."""
+        target_dir = tmp_path / "repos"
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", "microsoft/vscode",
+            "--target-dir", str(target_dir),
+            "--https",
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        assert "https://github.com/micr" in result.stdout  # Truncated in table
+
+    def test_repo_clone_missing_git(self, tmp_path, monkeypatch):
+        """Test clone command when git is not available."""
+        target_dir = tmp_path / "repos"
+        
+        # Mock subprocess.run to simulate git not found
+        def mock_run(*args, **kwargs):
+            if args[0][0] == 'git' and args[0][1] == '--version':
+                raise FileNotFoundError("git command not found")
+            return type('MockResult', (), {'returncode': 0, 'stdout': '', 'stderr': ''})()
+        
+        import subprocess
+        monkeypatch.setattr(subprocess, 'run', mock_run)
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", "microsoft/vscode",
+            "--target-dir", str(target_dir)
+        ])
+        
+        assert result.exit_code == 1
+        assert "Git is not available" in result.stdout
+
+    def test_repo_clone_nonexistent_file(self):
+        """Test clone command with non-existent file."""
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", "nonexistent_file.txt"
+        ])
+        
+        assert result.exit_code == 1
+        assert "Invalid repository format" in result.stdout
+
+    def test_repo_clone_empty_file(self, tmp_path):
+        """Test clone command with empty file."""
+        empty_file = tmp_path / "empty.txt"
+        empty_file.write_text("# Only comments\n\n")
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", str(empty_file)
+        ])
+        
+        assert result.exit_code == 1
+        assert "Error reading file" in result.stdout
+
+    def test_repo_clone_url_formats(self, tmp_path):
+        """Test clone command with different URL formats in dry-run mode."""
+        repo_file = tmp_path / "repo_urls.txt"
+        repo_file.write_text("""
+# Different URL formats
+microsoft/vscode
+https://github.com/facebook/react
+git@github.com:python/cpython.git
+https://github.com/django/django.git
+""")
+        
+        target_dir = tmp_path / "repos"
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", str(repo_file),
+            "--target-dir", str(target_dir),
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        assert "microsoft/vscode" in result.stdout
+        assert "facebook/react" in result.stdout
+        assert "python/cpython" in result.stdout
+        assert "django/django" in result.stdout
+
+    def test_repo_clone_existing_directory_preview(self, tmp_path):
+        """Test clone preview with existing directories."""
+        target_dir = tmp_path / "repos"
+        
+        # Create existing directory structure
+        existing_repo = target_dir / "microsoft" / "vscode"
+        existing_repo.mkdir(parents=True)
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", "microsoft/vscode",
+            "--target-dir", str(target_dir),
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        assert "(exists)" in result.stdout
+
+    def test_repo_clone_skip_vs_overwrite_options(self, tmp_path):
+        """Test skip vs overwrite options in dry-run mode."""
+        repo_file = tmp_path / "repos.txt"
+        repo_file.write_text("microsoft/vscode\nfacebook/react\n")
+        
+        target_dir = tmp_path / "repos"
+        
+        # Test with skip-existing (default)
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", str(repo_file),
+            "--target-dir", str(target_dir),
+            "--skip-existing",
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        assert "skip-existing" in result.stdout or "Found 2 repository(ies)" in result.stdout
+        
+        # Test with overwrite
+        result = runner.invoke(app, [
+            "repo", "clone", str(repo_file),
+            "--target-dir", str(target_dir),
+            "--overwrite",
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        assert "Found 2 repository(ies)" in result.stdout
+
+    def test_repo_clone_error_handling_options(self, tmp_path):
+        """Test error handling options in dry-run mode."""
+        target_dir = tmp_path / "repos"
+        
+        # Test continue on error (default)
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", "microsoft/vscode",
+            "--target-dir", str(target_dir),
+            "--continue",
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        
+        # Test fail-fast
+        result = runner.invoke(app, [
+            "repo", "clone", "microsoft/vscode",
+            "--target-dir", str(target_dir),
+            "--fail-fast",
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+
+    def test_repo_clone_cleanup_options(self, tmp_path):
+        """Test cleanup options in dry-run mode."""
+        target_dir = tmp_path / "repos"
+        
+        # Test with cleanup (default)
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", "microsoft/vscode",
+            "--target-dir", str(target_dir),
+            "--cleanup",
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        
+        # Test without cleanup
+        result = runner.invoke(app, [
+            "repo", "clone", "microsoft/vscode",
+            "--target-dir", str(target_dir),
+            "--no-cleanup",
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+
+    def test_repo_clone_estimate_disk_space(self, tmp_path):
+        """Test disk space estimation in dry-run mode."""
+        repo_file = tmp_path / "many_repos.txt"
+        repos = [f"user{i}/repo{i}" for i in range(50)]
+        repo_file.write_text("\n".join(repos))
+        
+        target_dir = tmp_path / "repos"
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", str(repo_file),
+            "--target-dir", str(target_dir),
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        assert "Estimated disk space:" in result.stdout
+        assert ("MB" in result.stdout or "GB" in result.stdout)
+
+    def test_repo_clone_organization_structure(self, tmp_path):
+        """Test organization structure preview."""
+        repo_file = tmp_path / "repos.txt"
+        repo_file.write_text("microsoft/vscode\nmicrosoft/typescript\nfacebook/react\n")
+        
+        target_dir = tmp_path / "repos"
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "clone", str(repo_file),
+            "--target-dir", str(target_dir),
+            "--dry-run"
+        ])
+        
+        assert result.exit_code == 0
+        assert "Organization: owner/repository directory structure" in result.stdout
+        assert "microsoft/vscode" in result.stdout
+        assert "microsoft/typescri" in result.stdout  # Truncated in table
+        assert "facebook/react" in result.stdout
