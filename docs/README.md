@@ -15,6 +15,7 @@ This directory contains detailed documentation for each command and subcommand i
 
 ### Site Generation
 - [site generate](site-generate.md) - Generate beautiful portfolio websites from repository data
+- [page generate](page-generate.md) - Generate landing pages from README.md files
 
 ## Quick Reference
 
@@ -26,6 +27,7 @@ This directory contains detailed documentation for each command and subcommand i
 | `invite accept` | Accept invitations | Dry-run mode, bulk processing |
 | `invite leave` | Leave repositories | Confirmation prompts, safety checks |
 | `site generate` | Create portfolio sites | 4 themes, responsive design |
+| `page generate` | Create landing pages | HTML/Jekyll output, README conversion |
 
 ## Configuration
 

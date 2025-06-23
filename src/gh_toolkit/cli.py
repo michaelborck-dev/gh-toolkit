@@ -18,11 +18,13 @@ console = Console()
 repo_app = typer.Typer(help="Repository management commands")
 invite_app = typer.Typer(help="Invitation management commands")
 site_app = typer.Typer(help="Site generation commands")
+page_app = typer.Typer(help="Page generation commands")
 
 # Register subcommands
 app.add_typer(repo_app, name="repo")
 app.add_typer(invite_app, name="invite")
 app.add_typer(site_app, name="site")
+app.add_typer(page_app, name="page")
 
 
 def version_callback(value: bool) -> None:
@@ -58,6 +60,7 @@ def info() -> None:
 
 # Import commands
 from gh_toolkit.commands.invite import accept_invitations, leave_repositories
+from gh_toolkit.commands.page import generate_page
 from gh_toolkit.commands.repo import extract_repos, list_repos
 from gh_toolkit.commands.site import generate_site
 from gh_toolkit.commands.tag import tag_repos
@@ -73,6 +76,9 @@ invite_app.command("leave")(leave_repositories)
 
 # Site commands
 site_app.command("generate")(generate_site)
+
+# Page commands
+page_app.command("generate")(generate_page)
 
 
 if __name__ == "__main__":
