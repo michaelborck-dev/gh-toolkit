@@ -57,11 +57,16 @@ def info() -> None:
     console.print(table)
 
 
-# Import repo commands
+# Import commands
 from gh_toolkit.commands.repo import list_repos
+from gh_toolkit.commands.invite import accept_invitations, leave_repositories
 
 # Repo commands
 repo_app.command("list")(list_repos)
+
+# Invite commands
+invite_app.command("accept")(accept_invitations)
+invite_app.command("leave")(leave_repositories)
 
 
 @repo_app.command("extract")
@@ -76,17 +81,6 @@ def repo_tag() -> None:
     console.print("🏷️  Repository tagging - [bold yellow]Coming soon![/bold yellow]")
 
 
-# Placeholder commands for invite subcommand
-@invite_app.command("accept")
-def invite_accept() -> None:
-    """Accept GitHub repository invitations."""
-    console.print("✅ Invitation acceptance - [bold yellow]Coming soon![/bold yellow]")
-
-
-@invite_app.command("leave")
-def invite_leave() -> None:
-    """Leave GitHub repositories."""
-    console.print("🚪 Repository leaving - [bold yellow]Coming soon![/bold yellow]")
 
 
 # Placeholder commands for site subcommand

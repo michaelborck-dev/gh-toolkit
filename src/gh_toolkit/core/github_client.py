@@ -185,11 +185,15 @@ class GitHubClient:
         else:
             # Get repos for authenticated user
             endpoint = "/user/repos"
-            params = {
-                "visibility": visibility,
-                "affiliation": affiliation,
-                "type": repo_type
-            }
+            params = {}
+            
+            # Only add type if visibility/affiliation are default
+            if visibility == "all" and affiliation == "owner,collaborator,organization_member":
+                params["type"] = repo_type
+            else:
+                # Use visibility and affiliation (cannot combine with type)
+                params["visibility"] = visibility
+                params["affiliation"] = affiliation
         
         return self.get_paginated(endpoint, params)
 
@@ -237,3 +241,75 @@ class GitHubClient:
         endpoint = f"/repos/{owner}/{repo}"
         response = self._make_request("GET", endpoint)
         return response.json()
+
+    # Invitation management methods
+    
+    def get_repository_invitations(self) -> List[Dict[str, Any]]:
+        """Get pending repository invitations for the authenticated user.
+        
+        Returns:
+            List of repository invitation data
+        """
+        endpoint = "/user/repository_invitations"
+        response = self._make_request("GET", endpoint)
+        return response.json()
+
+    def accept_repository_invitation(self, invitation_id: int) -> bool:
+        """Accept a repository invitation.
+        
+        Args:
+            invitation_id: ID of the invitation to accept
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        endpoint = f"/user/repository_invitations/{invitation_id}"
+        try:
+            self._make_request("PATCH", endpoint)
+            return True
+        except GitHubAPIError:
+            return False
+
+    def get_organization_invitations(self) -> List[Dict[str, Any]]:
+        """Get pending organization invitations for the authenticated user.
+        
+        Returns:
+            List of organization invitation data
+        """
+        endpoint = "/user/organization_invitations"
+        response = self._make_request("GET", endpoint)
+        return response.json()
+
+    def accept_organization_invitation(self, invitation_id: int) -> bool:
+        """Accept an organization invitation.
+        
+        Args:
+            invitation_id: ID of the invitation to accept
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        endpoint = f"/user/organization_invitations/{invitation_id}"
+        try:
+            self._make_request("PATCH", endpoint)
+            return True
+        except GitHubAPIError:
+            return False
+
+    def leave_repository(self, owner: str, repo: str, username: str) -> bool:
+        """Leave a repository (remove user as collaborator).
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            username: Username to remove (usually authenticated user)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        endpoint = f"/repos/{owner}/{repo}/collaborators/{username}"
+        try:
+            response = self._make_request("DELETE", endpoint)
+            return response.status_code in [204, 404]  # 404 means already not a collaborator
+        except GitHubAPIError:
+            return False
