@@ -12,6 +12,7 @@ A comprehensive command-line tool for managing GitHub repository portfolios at s
 - 📋 **Repository Management** - List, filter, and extract comprehensive repository data
 - 🤖 **LLM-Powered Categorization** - Intelligent repository classification using Claude AI
 - 🏷️ **Automated Topic Tagging** - Smart topic suggestions with fallback rules
+- 🩺 **Repository Health Checking** - Comprehensive quality audits with best practices compliance
 - 🎨 **Portfolio Site Generation** - Beautiful, responsive HTML portfolios with 4 themes
 - 📄 **Landing Page Generation** - Convert README.md to stunning HTML or Jekyll pages
 - 📧 **Invitation Management** - Bulk accept/leave repository collaborations
@@ -41,6 +42,9 @@ gh-toolkit site generate repos_data.json --theme educational
 # Convert README to landing page
 gh-toolkit page generate README.md --output index.html
 
+# Check repository health and best practices
+gh-toolkit repo health username/repo --rules academic
+
 # Add topic tags to repositories
 gh-toolkit repo tag username/* --dry-run
 
@@ -63,6 +67,9 @@ gh-toolkit repo extract repos.txt \
 
 # Add intelligent topic tags
 gh-toolkit repo tag user/repo --force --anthropic-key=sk-...
+
+# Check repository health and compliance
+gh-toolkit repo health user/repo --rules professional --min-score 80
 ```
 
 ### Site Generation

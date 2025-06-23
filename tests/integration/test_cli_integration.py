@@ -32,6 +32,7 @@ class TestCLIIntegration:
         assert "list" in result.stdout
         assert "extract" in result.stdout
         assert "tag" in result.stdout
+        assert "health" in result.stdout
     
     def test_invite_help(self):
         """Test invite subcommand help."""
@@ -250,3 +251,172 @@ class TestCLIIntegration:
         # Verify styling
         assert "Tailwind" in content or "tailwindcss" in content
         assert "indigo" in content  # Portfolio theme accent color
+
+    def test_repo_health_help(self):
+        """Test repo health command help."""
+        runner = CliRunner()
+        result = runner.invoke(app, ["repo", "health", "--help"])
+        
+        assert result.exit_code == 0
+        assert "Check repository health" in result.stdout
+        assert "--rules" in result.stdout
+        assert "--min-score" in result.stdout
+        assert "--output" in result.stdout
+
+    def test_repo_health_missing_token(self, no_env_vars):
+        """Test repo health command without GitHub token."""
+        runner = CliRunner()
+        result = runner.invoke(app, ["repo", "health", "testuser/repo"])
+        
+        assert result.exit_code == 1
+        assert "GitHub token required" in result.stdout
+
+    @responses.activate
+    def test_repo_health_single_repo(self, mock_github_token):
+        """Test health check for single repository."""
+        # Mock repository API response
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo",
+            json={
+                "name": "test-repo",
+                "full_name": "testuser/test-repo",
+                "description": "A test repository",
+                "language": "Python",
+                "stargazers_count": 5,
+                "forks_count": 1,
+                "watchers_count": 3,
+                "size": 1024,
+                "license": {"name": "MIT"},
+                "topics": ["python", "test"],
+                "created_at": "2023-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+                "pushed_at": "2024-01-01T00:00:00Z",
+                "homepage": "https://test-repo.example.com",
+                "has_issues": True,
+                "has_releases": False,
+                "archived": False,
+                "fork": False,
+                "private": False
+            },
+            status=200
+        )
+        
+        # Mock README API response
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo/readme",
+            json={
+                "content": "IyBUZXN0IFJlcG8KCkEgc2ltcGxlIHRlc3QgcmVwb3NpdG9yeS4=",  # base64 for "# Test Repo\n\nA simple test repository."
+                "size": 35
+            },
+            status=200
+        )
+        
+        # Mock contents API response
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo/contents",
+            json=[
+                {"name": "README.md", "type": "file"},
+                {"name": ".gitignore", "type": "file"},
+                {"name": "src", "type": "dir"},
+                {"name": "tests", "type": "dir"}
+            ],
+            status=200
+        )
+        
+        # Mock workflows API response
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo/actions/workflows",
+            json={"workflows": [{"name": "CI", "state": "active"}]},
+            status=200
+        )
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "health", "testuser/test-repo",
+            "--token", mock_github_token
+        ])
+        
+        assert result.exit_code == 0
+        assert "testuser/test-repo" in result.stdout
+        assert "Grade:" in result.stdout
+        assert "Category Breakdown:" in result.stdout
+
+    def test_repo_health_file_input(self, tmp_path, mock_github_token):
+        """Test health check with file input."""
+        # Create test repo list file
+        repo_file = tmp_path / "repos.txt"
+        repo_file.write_text("testuser/repo1\ntestuser/repo2\n")
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "health", str(repo_file),
+            "--token", mock_github_token,
+            "--no-details"  # Simplify output for test
+        ])
+        
+        # Should fail because repos don't exist, but should process the file
+        assert "Reading repository list" in result.stdout
+        assert "testuser/repo1" in result.stdout or "Failed to check" in result.stdout
+
+    def test_repo_health_rules_option(self, mock_github_token):
+        """Test health check with different rule sets."""
+        runner = CliRunner()
+        
+        # Test academic rules
+        result = runner.invoke(app, [
+            "repo", "health", "testuser/repo",
+            "--token", mock_github_token,
+            "--rules", "academic"
+        ])
+        assert "Rule set: academic" in result.stdout
+        
+        # Test professional rules
+        result = runner.invoke(app, [
+            "repo", "health", "testuser/repo", 
+            "--token", mock_github_token,
+            "--rules", "professional"
+        ])
+        assert "Rule set: professional" in result.stdout
+
+    def test_repo_health_min_score_filtering(self, mock_github_token):
+        """Test health check with minimum score filtering."""
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "health", "testuser/repo",
+            "--token", mock_github_token,
+            "--min-score", "90",
+            "--only-failed"
+        ])
+        
+        assert "Minimum score threshold: 90%" in result.stdout
+
+    def test_repo_health_output_options(self, tmp_path, mock_github_token):
+        """Test health check output options."""
+        output_file = tmp_path / "health_report.json"
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "health", "testuser/repo",
+            "--token", mock_github_token,
+            "--output", str(output_file),
+            "--no-details",
+            "--no-fixes"
+        ])
+        
+        # Should mention output file even if health check fails
+        assert str(output_file) in result.stdout or "Failed to check" in result.stdout
+
+    def test_repo_health_invalid_repo_format(self, mock_github_token):
+        """Test health check with invalid repository format."""
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "repo", "health", "invalid-repo-format",
+            "--token", mock_github_token
+        ])
+        
+        assert result.exit_code == 1
+        assert "Repository must be in 'owner/repo' format" in result.stdout

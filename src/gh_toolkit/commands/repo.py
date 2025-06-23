@@ -9,6 +9,7 @@ from rich.table import Table
 
 from gh_toolkit.core.github_client import GitHubAPIError, GitHubClient
 from gh_toolkit.core.repo_extractor import RepositoryExtractor
+from gh_toolkit.core.health_checker import RepositoryHealthChecker, HealthReport
 
 console = Console()
 
@@ -335,3 +336,247 @@ def extract_repos(
     except Exception as e:
         console.print(f"[red]Unexpected error: {str(e)}[/red]")
         raise typer.Exit(1)
+
+
+def health_check(
+    repos_input: str = typer.Argument(help="File with repo list (owner/repo per line) or single owner/repo"),
+    token: str | None = typer.Option(
+        None, "--token", "-t", help="GitHub token (or set GITHUB_TOKEN env var)"
+    ),
+    rules: str = typer.Option(
+        "general", "--rules", "-r", help="Rule set: general, academic, professional"
+    ),
+    min_score: int = typer.Option(
+        70, "--min-score", help="Minimum health score threshold (0-100)"
+    ),
+    output: str | None = typer.Option(
+        None, "--output", "-o", help="Output JSON report file"
+    ),
+    show_details: bool = typer.Option(
+        True, "--details/--no-details", help="Show detailed check results"
+    ),
+    show_fixes: bool = typer.Option(
+        True, "--fixes/--no-fixes", help="Show fix suggestions"
+    ),
+    only_failed: bool = typer.Option(
+        False, "--only-failed", help="Show only repositories that failed health checks"
+    ),
+) -> None:
+    """Check repository health and best practices compliance."""
+    
+    try:
+        # Use provided token or fallback to environment
+        github_token = token or os.environ.get("GITHUB_TOKEN")
+        if not github_token:
+            console.print("[red]Error: GitHub token required for health checks[/red]")
+            console.print("Set GITHUB_TOKEN environment variable or use --token option")
+            console.print("Get a token at: https://github.com/settings/tokens")
+            raise typer.Exit(1)
+
+        # Initialize client and health checker
+        client = GitHubClient(github_token)
+        checker = RepositoryHealthChecker(client, rules)
+
+        # Determine if input is a file or single repo
+        repo_list = []
+        input_path = Path(repos_input)
+
+        if input_path.exists() and input_path.is_file():
+            # Read repo list from file
+            console.print(f"[blue]Reading repository list from {input_path}[/blue]")
+            try:
+                with open(input_path, encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            repo_list.append(line)
+            except Exception as e:
+                console.print(f"[red]Error reading file {input_path}: {e}[/red]")
+                raise typer.Exit(1)
+        else:
+            # Single repository
+            if '/' not in repos_input:
+                console.print("[red]Error: Repository must be in 'owner/repo' format[/red]")
+                raise typer.Exit(1)
+            repo_list = [repos_input]
+
+        if not repo_list:
+            console.print("[red]Error: No repositories to check[/red]")
+            raise typer.Exit(1)
+
+        console.print(f"[green]Checking health of {len(repo_list)} repository(ies)[/green]")
+        console.print(f"[blue]Rule set: {rules}[/blue]")
+        console.print(f"[blue]Minimum score threshold: {min_score}%[/blue]\n")
+
+        # Check each repository
+        reports = []
+        failed_repos = []
+        
+        from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Checking repositories...", total=len(repo_list))
+            
+            for repo_name in repo_list:
+                progress.update(task, description=f"Checking {repo_name}")
+                
+                try:
+                    report = checker.check_repository_health(repo_name)
+                    reports.append(report)
+                    
+                    if report.percentage < min_score:
+                        failed_repos.append(repo_name)
+                        
+                except Exception as e:
+                    console.print(f"[red]✗ Failed to check {repo_name}: {str(e)}[/red]")
+                    failed_repos.append(repo_name)
+                
+                progress.advance(task)
+
+        # Filter reports if only showing failed
+        display_reports = [r for r in reports if r.percentage < min_score] if only_failed else reports
+
+        if not display_reports:
+            if only_failed:
+                console.print("[green]🎉 All repositories passed the health checks![/green]")
+            else:
+                console.print("[yellow]No health reports to display[/yellow]")
+            return
+
+        # Display results
+        console.print(f"\n[bold]Health Check Results ({len(display_reports)} repositories)[/bold]\n")
+
+        for report in display_reports:
+            _display_health_report(report, show_details, show_fixes)
+
+        # Summary statistics
+        if len(reports) > 1:
+            _display_health_summary(reports, min_score, failed_repos)
+
+        # Save JSON report if requested
+        if output:
+            _save_health_reports(reports, output)
+            console.print(f"\n[bold]Health reports saved to: [link]{output}[/link][/bold]")
+
+    except GitHubAPIError as e:
+        console.print(f"[red]GitHub API Error: {e.message}[/red]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Unexpected error: {str(e)}[/red]")
+        raise typer.Exit(1)
+
+
+def _display_health_report(report: HealthReport, show_details: bool, show_fixes: bool) -> None:
+    """Display a single repository health report."""
+    from rich.panel import Panel
+    from rich.progress import Progress, BarColumn
+    
+    # Header with score
+    grade_color = {
+        "A": "green",
+        "B": "blue", 
+        "C": "yellow",
+        "D": "orange1",
+        "F": "red"
+    }
+    
+    header = f"[bold cyan]{report.repository}[/bold cyan] - Grade: [{grade_color.get(report.grade, 'white')}]{report.grade}[/{grade_color.get(report.grade, 'white')}] ({report.percentage:.1f}%)"
+    
+    content = []
+    
+    # Score breakdown by category
+    if show_details:
+        content.append("[bold]Category Breakdown:[/bold]")
+        for category, data in report.summary["by_category"].items():
+            percentage = data["percentage"]
+            passed = data["passed"]
+            total = data["total"]
+            
+            bar_color = "green" if percentage >= 80 else "yellow" if percentage >= 60 else "red"
+            content.append(f"  {category}: [{bar_color}]{percentage:.0f}%[/{bar_color}] ({passed}/{total} checks passed)")
+        
+        content.append("")
+
+    # Failed checks with fix suggestions
+    if show_fixes and report.summary["top_issues"]:
+        content.append("[bold]Top Issues to Fix:[/bold]")
+        for i, issue in enumerate(report.summary["top_issues"][:3], 1):
+            content.append(f"  {i}. [red]{issue.name}[/red]: {issue.message}")
+            if issue.fix_suggestion:
+                content.append(f"     💡 [dim]{issue.fix_suggestion}[/dim]")
+        content.append("")
+
+    # Repository stats
+    repo_info = report.summary["repository_info"]
+    stats_parts = []
+    if repo_info["language"]:
+        stats_parts.append(f"Language: {repo_info['language']}")
+    if repo_info["stars"] > 0:
+        stats_parts.append(f"⭐ {repo_info['stars']}")
+    if repo_info["size_kb"] > 0:
+        stats_parts.append(f"Size: {repo_info['size_kb']}KB")
+    
+    if stats_parts:
+        content.append(f"[dim]{' | '.join(stats_parts)}[/dim]")
+
+    panel_content = "\n".join(content) if content else f"Score: {report.total_score}/{report.max_score}"
+    
+    # Color the panel border based on grade
+    border_style = grade_color.get(report.grade, "white")
+    
+    console.print(Panel(panel_content, title=header, border_style=border_style))
+    console.print()
+
+
+def _display_health_summary(reports: list[HealthReport], min_score: int, failed_repos: list[str]) -> None:
+    """Display summary statistics for multiple repositories."""
+    from rich.panel import Panel
+    
+    total_repos = len(reports)
+    passed_repos = len([r for r in reports if r.percentage >= min_score])
+    failed_count = len(failed_repos)
+    
+    avg_score = sum(r.percentage for r in reports) / total_repos if reports else 0
+    
+    # Grade distribution
+    grades = {}
+    for report in reports:
+        grades[report.grade] = grades.get(report.grade, 0) + 1
+    
+    summary_lines = [
+        f"[bold]Total Repositories:[/bold] {total_repos}",
+        f"[bold]Passed ({min_score}%+):[/bold] [green]{passed_repos}[/green]",
+        f"[bold]Failed:[/bold] [red]{failed_count}[/red]",
+        f"[bold]Average Score:[/bold] {avg_score:.1f}%",
+        "",
+        "[bold]Grade Distribution:[/bold]"
+    ]
+    
+    for grade in ["A", "B", "C", "D", "F"]:
+        count = grades.get(grade, 0)
+        if count > 0:
+            percentage = count / total_repos * 100
+            summary_lines.append(f"  Grade {grade}: {count} ({percentage:.0f}%)")
+    
+    console.print(Panel("\n".join(summary_lines), title="[bold]Summary[/bold]", border_style="blue"))
+
+
+def _save_health_reports(reports: list[HealthReport], output_file: str) -> None:
+    """Save health reports to JSON file."""
+    import json
+    from dataclasses import asdict
+    
+    # Convert reports to serializable format
+    serializable_reports = []
+    for report in reports:
+        report_dict = asdict(report)
+        serializable_reports.append(report_dict)
+    
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(serializable_reports, f, indent=2, default=str)

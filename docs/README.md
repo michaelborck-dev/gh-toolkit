@@ -8,6 +8,7 @@ This directory contains detailed documentation for each command and subcommand i
 - [repo list](repo-list.md) - List repositories with filters
 - [repo extract](repo-extract.md) - Extract comprehensive repository data with LLM categorization
 - [repo tag](repo-tag.md) - Add intelligent topic tags to repositories
+- [repo health](repo-health.md) - Check repository health and best practices compliance
 
 ### Invitation Management
 - [invite accept](invite-accept.md) - Accept repository invitations in bulk
@@ -24,6 +25,7 @@ This directory contains detailed documentation for each command and subcommand i
 | `repo list` | List repositories | Filtering, JSON output |
 | `repo extract` | Extract repo data | LLM categorization, detailed analysis |
 | `repo tag` | Add topic tags | AI-powered, bulk operations |
+| `repo health` | Check repo quality | Best practices audit, grading system |
 | `invite accept` | Accept invitations | Dry-run mode, bulk processing |
 | `invite leave` | Leave repositories | Confirmation prompts, safety checks |
 | `site generate` | Create portfolio sites | 4 themes, responsive design |
