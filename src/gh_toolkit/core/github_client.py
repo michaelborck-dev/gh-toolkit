@@ -8,6 +8,7 @@ import requests
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
+
 console = Console()
 
 
@@ -126,7 +127,7 @@ class GitHubClient:
         Returns:
             List of all items from all pages
         """
-        items = []
+        items: list[dict[str, Any]] = []
         page = 1
         params = params or {}
         params["per_page"] = min(per_page, 100)
@@ -147,7 +148,7 @@ class GitHubClient:
                 progress.update(task, description=f"Fetching page {page}...")
 
                 response = self._make_request("GET", endpoint, params)
-                page_items = response.json()
+                page_items: list[dict[str, Any]] = response.json()
 
                 if not page_items:
                     break
@@ -366,7 +367,6 @@ class GitHubClient:
             List of topic strings
         """
         endpoint = f"/repos/{owner}/{repo}/topics"
-        headers = {**self.headers, "Accept": "application/vnd.github.mercy-preview+json"}
         try:
             response = self._make_request("GET", endpoint)
             return response.json().get('names', [])

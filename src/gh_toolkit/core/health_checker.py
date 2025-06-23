@@ -2,9 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
-from pathlib import Path
-import os
+from typing import Any
 
 from gh_toolkit.core.github_client import GitHubClient
 
@@ -19,7 +17,7 @@ class HealthCheck:
     score: int  # Points awarded (0-10)
     max_score: int  # Maximum possible points
     message: str
-    fix_suggestion: Optional[str] = None
+    fix_suggestion: str | None = None
 
 
 @dataclass
@@ -30,8 +28,8 @@ class HealthReport:
     max_score: int
     percentage: float
     grade: str
-    checks: List[HealthCheck]
-    summary: Dict[str, Any]
+    checks: list[HealthCheck]
+    summary: dict[str, Any]
 
 
 class RepositoryHealthChecker:
@@ -67,13 +65,13 @@ class RepositoryHealthChecker:
         self.weights = base_weights
 
     def check_repository_health(
-        self, repo_full_name: str, repo_data: Optional[Dict[str, Any]] = None
+        self, repo_full_name: str, repo_data: dict[str, Any] | None = None
     ) -> HealthReport:
         """Check the health of a repository and return a comprehensive report."""
         if repo_data is None:
             repo_data = self._fetch_repository_data(repo_full_name)
 
-        checks = []
+        checks: list[HealthCheck] = []
         
         # Documentation checks
         checks.extend(self._check_documentation(repo_data))
@@ -106,25 +104,25 @@ class RepositoryHealthChecker:
             summary=summary,
         )
 
-    def _fetch_repository_data(self, repo_full_name: str) -> Dict[str, Any]:
+    def _fetch_repository_data(self, repo_full_name: str) -> dict[str, Any]:
         """Fetch repository data from GitHub API."""
         owner, repo = repo_full_name.split("/")
         
         # Get basic repository info
-        repo_data = self.client._make_request(f"/repos/{owner}/{repo}")
+        repo_data = self.client.get_repo_info(owner, repo)
         
         # Get README content
         try:
-            readme_data = self.client._make_request(f"/repos/{owner}/{repo}/readme")
-            repo_data["readme_content"] = readme_data.get("content", "")
-            repo_data["readme_size"] = readme_data.get("size", 0)
+            readme_content = self.client.get_repo_readme(owner, repo)
+            repo_data["readme_content"] = readme_content
+            repo_data["readme_size"] = len(readme_content)
         except Exception:
             repo_data["readme_content"] = ""
             repo_data["readme_size"] = 0
 
         # Get repository contents for structure analysis
         try:
-            contents = self.client._make_request(f"/repos/{owner}/{repo}/contents")
+            contents = self.client.get_paginated(f"/repos/{owner}/{repo}/contents")
             repo_data["root_files"] = [item["name"] for item in contents if item["type"] == "file"]
             repo_data["root_dirs"] = [item["name"] for item in contents if item["type"] == "dir"]
         except Exception:
@@ -133,16 +131,16 @@ class RepositoryHealthChecker:
 
         # Get workflow files for CI/CD analysis
         try:
-            workflows = self.client._make_request(f"/repos/{owner}/{repo}/actions/workflows")
-            repo_data["workflows"] = workflows.get("workflows", [])
+            workflows_response = self.client.get_paginated(f"/repos/{owner}/{repo}/actions/workflows")
+            repo_data["workflows"] = workflows_response
         except Exception:
             repo_data["workflows"] = []
 
         return repo_data
 
-    def _check_documentation(self, repo_data: Dict[str, Any]) -> List[HealthCheck]:
+    def _check_documentation(self, repo_data: dict[str, Any]) -> list[HealthCheck]:
         """Check documentation quality and completeness."""
-        checks = []
+        checks: list[HealthCheck] = []
 
         # README check
         has_readme = repo_data.get("readme_size", 0) > 0
@@ -216,9 +214,9 @@ class RepositoryHealthChecker:
 
         return checks
 
-    def _check_structure(self, repo_data: Dict[str, Any]) -> List[HealthCheck]:
+    def _check_structure(self, repo_data: dict[str, Any]) -> list[HealthCheck]:
         """Check repository structure and organization."""
-        checks = []
+        checks: list[HealthCheck] = []
         root_files = repo_data.get("root_files", [])
         root_dirs = repo_data.get("root_dirs", [])
 
@@ -263,9 +261,9 @@ class RepositoryHealthChecker:
 
         return checks
 
-    def _check_quality(self, repo_data: Dict[str, Any]) -> List[HealthCheck]:
+    def _check_quality(self, repo_data: dict[str, Any]) -> list[HealthCheck]:
         """Check code quality indicators."""
-        checks = []
+        checks: list[HealthCheck] = []
         root_dirs = repo_data.get("root_dirs", [])
 
         # Tests check
@@ -324,9 +322,9 @@ class RepositoryHealthChecker:
 
         return checks
 
-    def _check_metadata(self, repo_data: Dict[str, Any]) -> List[HealthCheck]:
+    def _check_metadata(self, repo_data: dict[str, Any]) -> list[HealthCheck]:
         """Check repository metadata and configuration."""
-        checks = []
+        checks: list[HealthCheck] = []
 
         # Homepage URL check
         has_homepage = bool(repo_data.get("homepage", "").strip())
@@ -415,7 +413,7 @@ class RepositoryHealthChecker:
 
         return score / max_score
 
-    def _assess_organization(self, root_files: List[str], root_dirs: List[str], repo_data: Dict[str, Any]) -> float:
+    def _assess_organization(self, root_files: list[str], root_dirs: list[str], repo_data: dict[str, Any]) -> float:
         """Assess repository organization quality."""
         score = 0.0
         max_score = 5.0
@@ -477,7 +475,7 @@ class RepositoryHealthChecker:
 
         return score / max_score
 
-    def _assess_activity(self, repo_data: Dict[str, Any]) -> float:
+    def _assess_activity(self, repo_data: dict[str, Any]) -> float:
         """Assess repository activity level."""
         from datetime import datetime, timezone
         
@@ -522,7 +520,7 @@ class RepositoryHealthChecker:
 
         return score / max_score
 
-    def _assess_code_quality(self, repo_data: Dict[str, Any]) -> float:
+    def _assess_code_quality(self, repo_data: dict[str, Any]) -> float:
         """Assess code quality indicators."""
         score = 0.0
         max_score = 4.0
@@ -565,9 +563,9 @@ class RepositoryHealthChecker:
         else:
             return "F"
 
-    def _generate_summary(self, checks: List[HealthCheck], repo_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_summary(self, checks: list[HealthCheck], repo_data: dict[str, Any]) -> dict[str, Any]:
         """Generate summary statistics and insights."""
-        by_category = {}
+        by_category: dict[str, dict[str, Any]] = {}
         for check in checks:
             if check.category not in by_category:
                 by_category[check.category] = {"passed": 0, "total": 0, "score": 0, "max_score": 0}
@@ -579,12 +577,11 @@ class RepositoryHealthChecker:
                 by_category[check.category]["passed"] += 1
 
         # Calculate category percentages
-        for category in by_category:
-            cat_data = by_category[category]
+        for cat_data in by_category.values():
             cat_data["percentage"] = (cat_data["score"] / cat_data["max_score"] * 100) if cat_data["max_score"] > 0 else 0
 
         # Top issues to fix
-        failed_checks = [check for check in checks if not check.passed and check.fix_suggestion]
+        failed_checks: list[HealthCheck] = [check for check in checks if not check.passed and check.fix_suggestion]
         failed_checks.sort(key=lambda x: x.max_score, reverse=True)  # Sort by impact
         
         return {

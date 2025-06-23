@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 import typer
 import yaml
@@ -63,15 +64,15 @@ def generate_site(
         console.print(f"[blue]📂 Loading repository data from {repos_path}[/blue]")
 
         # Determine file format and load data
-        repos_list: list[dict] = []
+        repos_list: list[dict[str, Any]] = []
         if repos_path.suffix.lower() == '.json':
             with open(repos_path, encoding='utf-8') as f:
                 data = json.load(f)
                 # Handle both direct list and nested structure
                 if isinstance(data, list):
-                    repos_list = data
+                    repos_list = data  # type: ignore[assignment]
                 elif isinstance(data, dict) and 'repositories' in data:
-                    repos_list = data['repositories']
+                    repos_list = data['repositories']  # type: ignore[assignment]
                 else:
                     console.print("[red]✗ Invalid JSON format. Expected list of repositories or object with 'repositories' key[/red]")
                     raise typer.Exit(1)
@@ -79,9 +80,9 @@ def generate_site(
             with open(repos_path, encoding='utf-8') as f:
                 data = yaml.safe_load(f)
                 if isinstance(data, list):
-                    repos_list = data
+                    repos_list = data  # type: ignore[assignment]
                 elif isinstance(data, dict) and 'repositories' in data:
-                    repos_list = data['repositories']
+                    repos_list = data['repositories']  # type: ignore[assignment]
                 else:
                     console.print("[red]✗ Invalid YAML format. Expected list of repositories or object with 'repositories' key[/red]")
                     raise typer.Exit(1)
@@ -93,10 +94,12 @@ def generate_site(
             console.print("[yellow]⚠ No repositories found in data file[/yellow]")
             raise typer.Exit(1)
 
-        console.print(f"[green]✓ Loaded {len(repos_list)} repositories[/green]")
+        # Type assertion for repos_list after validation
+        repos_list_typed = cast(list[dict[str, Any]], repos_list)
+        console.print(f"[green]✓ Loaded {len(repos_list_typed)} repositories[/green]")
 
         # Load metadata if provided
-        metadata_dict: dict = {}
+        metadata_dict: dict[str, Any] = {}
         if metadata:
             metadata_path = Path(metadata)
             if not metadata_path.exists():
@@ -117,7 +120,7 @@ def generate_site(
 
         generator = SiteGenerator()
         generator.generate_site(
-            repos_data=repos_list,
+            repos_data=repos_list_typed,
             theme=theme,
             output_file=output,
             metadata=metadata_dict,

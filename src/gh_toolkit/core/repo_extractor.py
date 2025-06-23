@@ -143,7 +143,7 @@ class RepositoryExtractor:
         Returns:
             List of repository data dictionaries
         """
-        extracted_repos = []
+        extracted_repos: list[dict[str, Any]] = []
 
         if show_progress:
             with Progress(
@@ -207,7 +207,7 @@ class RepositoryExtractor:
 
     def _extract_download_links(self, releases: list[dict[str, Any]]) -> dict[str, str]:
         """Extract download links from releases."""
-        download_links = {}
+        download_links: dict[str, str] = {}
 
         if not releases:
             return download_links
@@ -294,7 +294,7 @@ class RepositoryExtractor:
         """Rule-based repository categorization."""
         name_lower = repo_data['name'].lower()
         desc_lower = (repo_data.get('description', '') or '').lower()
-        readme_lower = readme.lower()
+        # readme_lower = readme.lower()  # Could be used for content-based categorization
         topics_str = ' '.join(topics).lower()
         languages_list = list(languages.keys())
 
@@ -482,7 +482,8 @@ Respond with ONLY the category name from the list above. Choose the most specifi
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            category = response.content[0].text.strip()
+            response_content = response.content[0]
+            category = getattr(response_content, 'text', '').strip() if hasattr(response_content, 'text') else ''
 
             # Validate category
             valid_categories = [

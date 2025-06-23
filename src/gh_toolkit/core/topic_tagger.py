@@ -1,6 +1,5 @@
 """Topic tagging functionality for GitHub repositories."""
 
-import base64
 import time
 from typing import Any
 
@@ -32,10 +31,7 @@ class TopicTagger:
     def get_readme_content(self, owner: str, repo: str) -> str:
         """Fetch README content from repository."""
         try:
-            response = self.client._make_request(f"repos/{owner}/{repo}/readme")
-
-            # Decode base64 content
-            readme_text = base64.b64decode(response['content']).decode('utf-8')
+            readme_text = self.client.get_repo_readme(owner, repo)
             return readme_text[:5000]  # Limit to first 5000 chars to avoid token limits
         except (GitHubAPIError, KeyError, Exception):
             return ""
@@ -84,11 +80,12 @@ Topics:"""
             )
 
             # Parse topics from response
-            topics_text = response.content[0].text.strip()
-            topics = [t.strip().lower() for t in topics_text.split(',')]
+            response_content = response.content[0]
+            topics_text = getattr(response_content, 'text', '').strip() if hasattr(response_content, 'text') else ''
+            topics = [t.strip().lower() for t in topics_text.split(',') if t.strip()]
 
             # Filter and validate topics
-            valid_topics = []
+            valid_topics: list[str] = []
             for topic in topics:
                 # Basic validation
                 if (topic and
@@ -106,7 +103,7 @@ Topics:"""
 
     def _generate_fallback_topics(self, repo_data: dict[str, Any]) -> list[str]:
         """Generate basic topics using rule-based approach when LLM is unavailable."""
-        topics = []
+        topics: list[str] = []
 
         # Add main language
         if repo_data.get('language'):
@@ -150,8 +147,9 @@ Topics:"""
         combined_text = f"{description} {name}"
 
         # Map GitHub API field names to our expected format
-        stars = repo_data.get('stargazers_count', 0)
-        forks = repo_data.get('forks_count', 0)
+        # Stars and forks could be used for popularity-based topic suggestions
+        # stars = repo_data.get('stargazers_count', 0)
+        # forks = repo_data.get('forks_count', 0)
 
         # Common patterns
         patterns = {
@@ -300,7 +298,7 @@ Topics:"""
 
     def process_multiple_repositories(self, repo_list: list[tuple[str, str]], dry_run: bool = False, force: bool = False) -> list[dict[str, Any]]:
         """Process multiple repositories with rate limiting."""
-        results = []
+        results: list[dict[str, Any]] = []
 
         for i, (owner, repo) in enumerate(repo_list, 1):
             console.print(f"\n[blue]Processing {i}/{len(repo_list)}: {owner}/{repo}[/blue]")

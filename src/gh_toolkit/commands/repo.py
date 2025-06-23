@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -10,7 +11,7 @@ from rich.table import Table
 from gh_toolkit.core.github_client import GitHubAPIError, GitHubClient
 from gh_toolkit.core.repo_extractor import RepositoryExtractor
 from gh_toolkit.core.health_checker import RepositoryHealthChecker, HealthReport
-from gh_toolkit.core.repo_cloner import RepoCloner, CloneResult
+from gh_toolkit.core.repo_cloner import RepoCloner, CloneResult, CloneStats
 
 console = Console()
 
@@ -61,6 +62,8 @@ def list_repos(
         # Get repositories
         console.print(f"[blue]Fetching repositories for '{owner}'...[/blue]")
 
+        # Note: GitHub API client returns list[dict[str, Any]] which we treat as GitHubRepository
+        repos: list[dict[str, Any]]
         if is_own_repos:
             repos = client.get_user_repos(repo_type=repo_type)
         else:
@@ -80,7 +83,7 @@ def list_repos(
             return
 
         # Apply filters
-        filtered_repos = repos
+        filtered_repos: list[dict[str, Any]] = repos
 
         # Visibility filter
         if public:
@@ -100,7 +103,7 @@ def list_repos(
         if language:
             filtered_repos = [
                 r for r in filtered_repos
-                if r.get("language") and r["language"].lower() == language.lower()
+                if r.get("language") and r["language"] and r["language"].lower() == language.lower()
             ]
 
         # Apply limit
@@ -131,7 +134,7 @@ def list_repos(
         raise typer.Exit(1)
 
 
-def _display_repos_table(repos: list[dict]) -> None:
+def _display_repos_table(repos: list[dict[str, Any]]) -> None:
     """Display repositories in a beautiful table format."""
     table = Table(title=f"Found {len(repos)} repositories")
 
@@ -174,7 +177,7 @@ def _display_repos_table(repos: list[dict]) -> None:
     console.print(table)
 
 
-def _display_verbose_repos(repos: list[dict]) -> None:
+def _display_verbose_repos(repos: list[dict[str, Any]]) -> None:
     """Display repositories in verbose format."""
     for i, repo in enumerate(repos, 1):
         console.print(f"\n[bold cyan]{i}. {repo['full_name']}[/bold cyan]")
@@ -184,7 +187,7 @@ def _display_verbose_repos(repos: list[dict]) -> None:
             console.print(f"   Description: {repo['description']}")
 
         # Status indicators
-        status_parts = []
+        status_parts: list[str] = []
         if repo.get("private", False):
             status_parts.append("[red]Private[/red]")
         else:
@@ -251,7 +254,7 @@ def extract_repos(
         extractor = RepositoryExtractor(client, anthropic_api_key)
 
         # Determine if input is a file or single repo
-        repo_list = []
+        repo_list: list[str] = []
         input_path = Path(repos_input)
 
         if input_path.exists() and input_path.is_file():
@@ -295,7 +298,7 @@ def extract_repos(
         console.print(f"[red]✗ Failed to extract {len(repo_list) - len(extracted_data)} repositories[/red]")
 
         # Category summary
-        categories = {}
+        categories: dict[str, int] = {}
         for repo in extracted_data:
             cat = repo['category']
             categories[cat] = categories.get(cat, 0) + 1
@@ -379,7 +382,7 @@ def health_check(
         checker = RepositoryHealthChecker(client, rules)
 
         # Determine if input is a file or single repo
-        repo_list = []
+        repo_list: list[str] = []
         input_path = Path(repos_input)
 
         if input_path.exists() and input_path.is_file():
@@ -410,8 +413,8 @@ def health_check(
         console.print(f"[blue]Minimum score threshold: {min_score}%[/blue]\n")
 
         # Check each repository
-        reports = []
-        failed_repos = []
+        reports: list[HealthReport] = []
+        failed_repos: list[str] = []
         
         from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn
         
@@ -476,7 +479,7 @@ def health_check(
 def _display_health_report(report: HealthReport, show_details: bool, show_fixes: bool) -> None:
     """Display a single repository health report."""
     from rich.panel import Panel
-    from rich.progress import Progress, BarColumn
+    # Unused imports removed for type checking
     
     # Header with score
     grade_color = {
@@ -492,6 +495,7 @@ def _display_health_report(report: HealthReport, show_details: bool, show_fixes:
     content = []
     
     # Score breakdown by category
+    content: list[str] = []
     if show_details:
         content.append("[bold]Category Breakdown:[/bold]")
         for category, data in report.summary["by_category"].items():
@@ -515,12 +519,12 @@ def _display_health_report(report: HealthReport, show_details: bool, show_fixes:
 
     # Repository stats
     repo_info = report.summary["repository_info"]
-    stats_parts = []
+    stats_parts: list[str] = []
     if repo_info["language"]:
         stats_parts.append(f"Language: {repo_info['language']}")
-    if repo_info["stars"] > 0:
+    if repo_info["stars"] and repo_info["stars"] > 0:
         stats_parts.append(f"⭐ {repo_info['stars']}")
-    if repo_info["size_kb"] > 0:
+    if repo_info["size_kb"] and repo_info["size_kb"] > 0:
         stats_parts.append(f"Size: {repo_info['size_kb']}KB")
     
     if stats_parts:
@@ -546,11 +550,11 @@ def _display_health_summary(reports: list[HealthReport], min_score: int, failed_
     avg_score = sum(r.percentage for r in reports) / total_repos if reports else 0
     
     # Grade distribution
-    grades = {}
+    grades: dict[str, int] = {}
     for report in reports:
         grades[report.grade] = grades.get(report.grade, 0) + 1
     
-    summary_lines = [
+    summary_lines: list[str] = [
         f"[bold]Total Repositories:[/bold] {total_repos}",
         f"[bold]Passed ({min_score}%+):[/bold] [green]{passed_repos}[/green]",
         f"[bold]Failed:[/bold] [red]{failed_count}[/red]",
@@ -574,7 +578,7 @@ def _save_health_reports(reports: list[HealthReport], output_file: str) -> None:
     from dataclasses import asdict
     
     # Convert reports to serializable format
-    serializable_reports = []
+    serializable_reports: list[dict[str, Any]] = []
     for report in reports:
         report_dict = asdict(report)
         serializable_reports.append(report_dict)
@@ -626,7 +630,7 @@ def clone_repos(
             raise typer.Exit(1)
         
         # Determine if input is a file or single repo
-        repo_list = []
+        repo_list: list[str] = []
         input_path = Path(repos_input)
         
         if input_path.exists() and input_path.is_file():
@@ -783,7 +787,7 @@ def _show_clone_preview(
         console.print(f"[blue]Depth:[/blue] {depth}")
 
 
-def _display_clone_results(results: list[CloneResult], stats, cleaned_up: int) -> None:
+def _display_clone_results(results: list[CloneResult], stats: CloneStats, cleaned_up: int) -> None:
     """Display clone operation results."""
     from rich.panel import Panel
     

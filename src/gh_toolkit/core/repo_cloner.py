@@ -1,14 +1,21 @@
 """Repository cloning functionality with parallel processing and organization."""
 
-import os
 import re
 import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Union, Protocol
 from urllib.parse import urlparse
+
+
+class CloneProgressCallback(Protocol):
+    """Callback protocol for clone progress reporting."""
+    def __call__(self, result: "CloneResult", completed: int, total: int) -> None:
+        """Report clone progress."""
+        ...
+
 
 
 @dataclass
@@ -18,9 +25,9 @@ class CloneResult:
     repo_url: str
     target_path: Path
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
     skipped: bool = False
-    skip_reason: Optional[str] = None
+    skip_reason: str | None = None
 
 
 @dataclass
@@ -30,7 +37,7 @@ class CloneStats:
     successful: int
     failed: int
     skipped: int
-    errors: List[CloneResult]
+    errors: list[CloneResult]
 
 
 class RepoCloner:
@@ -107,7 +114,7 @@ class RepoCloner:
         
         raise ValueError(f"Invalid GitHub URL format: {url}")
 
-    def build_clone_url(self, owner: str, repo: str, use_ssh: Optional[bool] = None) -> str:
+    def build_clone_url(self, owner: str, repo: str, use_ssh: bool | None = None) -> str:
         """Build clone URL for repository.
         
         Args:
@@ -165,9 +172,9 @@ class RepoCloner:
     def clone_repository(
         self, 
         repo_input: str, 
-        branch: Optional[str] = None, 
-        depth: Optional[int] = None,
-        use_ssh: Optional[bool] = None,
+        branch: str | None = None, 
+        depth: int | None = None,
+        use_ssh: bool | None = None,
         skip_existing: bool = True
     ) -> CloneResult:
         """Clone a single repository.
@@ -265,13 +272,13 @@ class RepoCloner:
 
     def clone_repositories(
         self,
-        repo_inputs: List[str],
-        branch: Optional[str] = None,
-        depth: Optional[int] = None,
-        use_ssh: Optional[bool] = None,
+        repo_inputs: list[str],
+        branch: str | None = None,
+        depth: int | None = None,
+        use_ssh: bool | None = None,
         skip_existing: bool = True,
-        progress_callback: Optional[callable] = None
-    ) -> tuple[List[CloneResult], CloneStats]:
+        progress_callback: CloneProgressCallback | None = None
+    ) -> tuple[list[CloneResult], CloneStats]:
         """Clone multiple repositories in parallel.
         
         Args:
@@ -285,7 +292,7 @@ class RepoCloner:
         Returns:
             Tuple of (results, stats)
         """
-        results = []
+        results: list[CloneResult] = []
         
         with ThreadPoolExecutor(max_workers=self.parallel) as executor:
             # Submit all clone tasks
@@ -315,7 +322,7 @@ class RepoCloner:
         
         return results, stats
 
-    def _generate_stats(self, results: List[CloneResult]) -> CloneStats:
+    def _generate_stats(self, results: list[CloneResult]) -> CloneStats:
         """Generate statistics from clone results.
         
         Args:
@@ -337,7 +344,7 @@ class RepoCloner:
             errors=errors
         )
 
-    def read_repo_list(self, file_path: Union[str, Path]) -> List[str]:
+    def read_repo_list(self, file_path: Union[str, Path]) -> list[str]:
         """Read repository list from file.
         
         Args:
@@ -355,9 +362,9 @@ class RepoCloner:
         if not file_path.exists():
             raise FileNotFoundError(f"Repository list file not found: {file_path}")
         
-        repos = []
+        repos: list[str] = []
         with open(file_path, 'r', encoding='utf-8') as f:
-            for line_num, line in enumerate(f, 1):
+            for line in f:
                 line = line.strip()
                 
                 # Skip empty lines and comments
@@ -387,7 +394,7 @@ class RepoCloner:
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return False
 
-    def estimate_disk_space(self, repo_inputs: List[str]) -> str:
+    def estimate_disk_space(self, repo_inputs: list[str]) -> str:
         """Estimate disk space requirements for cloning repositories.
         
         Args:
@@ -406,7 +413,7 @@ class RepoCloner:
         else:
             return f"~{total_mb / 1024:.1f}GB"
 
-    def cleanup_failed_clones(self, results: List[CloneResult]) -> int:
+    def cleanup_failed_clones(self, results: list[CloneResult]) -> int:
         """Clean up partially cloned repositories that failed.
         
         Args:

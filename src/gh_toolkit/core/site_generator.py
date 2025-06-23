@@ -76,9 +76,9 @@ class SiteGenerator:
         self,
         repos_data: list[dict[str, Any]],
         theme_config: dict[str, Any]
-    ) -> list[tuple]:
+    ) -> list[tuple[str, list[dict[str, Any]]]]:
         """Group repositories by category according to theme preferences."""
-        categories = {}
+        categories: dict[str, list[dict[str, Any]]] = {}
 
         for repo in repos_data:
             cat = repo.get('category', 'Other Tool')
@@ -88,7 +88,7 @@ class SiteGenerator:
 
         # Sort according to theme's preferred order
         category_order = theme_config.get('category_order', [])
-        ordered_categories = []
+        ordered_categories: list[tuple[str, list[dict[str, Any]]]] = []
 
         # Add categories in preferred order
         for cat in category_order:
@@ -104,7 +104,7 @@ class SiteGenerator:
 
     def _generate_html(
         self,
-        categories: list[tuple],
+        categories: list[tuple[str, list[dict[str, Any]]]],
         theme_config: dict[str, Any],
         metadata: dict[str, Any],
         title: str,
@@ -181,9 +181,9 @@ class SiteGenerator:
 
         return html
 
-    def _generate_category_buttons(self, categories: list[tuple], theme_config: dict[str, Any]) -> str:
+    def _generate_category_buttons(self, categories: list[tuple[str, list[dict[str, Any]]]], theme_config: dict[str, Any]) -> str:
         """Generate category filter buttons."""
-        buttons = []
+        buttons: list[str] = []
         for cat, _ in categories:
             cat_id = cat.replace(" ", "-").lower()
             button = f'''<button onclick="filterByCategory('{cat_id}')" class="category-btn px-4 py-2 bg-{theme_config['accent_color']}-100 text-{theme_config['accent_color']}-700 rounded-full hover:bg-{theme_config['accent_color']}-200 transition" data-category="{cat_id}">{cat}</button>'''
@@ -192,12 +192,12 @@ class SiteGenerator:
 
     def _generate_category_sections(
         self,
-        categories: list[tuple],
+        categories: list[tuple[str, list[dict[str, Any]]]],
         theme_config: dict[str, Any],
         metadata: dict[str, Any]
     ) -> str:
         """Generate category sections with repository cards."""
-        sections = []
+        sections: list[str] = []
 
         category_icons = theme_config.get('category_icons', {})
 
@@ -229,7 +229,7 @@ class SiteGenerator:
         metadata: dict[str, Any]
     ) -> str:
         """Generate repository cards."""
-        cards = []
+        cards: list[str] = []
 
         # Sort repositories by stars
         sorted_repos = sorted(repos, key=lambda x: x.get('stars', 0), reverse=True)
@@ -324,7 +324,7 @@ class SiteGenerator:
             return ""
 
         accent_color = theme_config['accent_color']
-        topic_tags = []
+        topic_tags: list[str] = []
         for topic in topics[:5]:  # Limit to 5 topics
             topic_tags.append(
                 f'<span class="text-xs px-2 py-1 bg-{accent_color}-50 text-{accent_color}-600 rounded-full">#{topic}</span>'

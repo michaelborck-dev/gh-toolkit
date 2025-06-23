@@ -88,11 +88,11 @@ STYLES_AND_SCRIPTS_BLOCK = """
 class BadgeRemoverRenderer(mistune.HTMLRenderer):
     """Custom renderer that removes shield.io badges from markdown."""
 
-    def image(self, alt: str, url: str, title: Optional[str] = None) -> str:
+    def image(self, text: str, url: str, title: str | None = None) -> str:
         """Remove shield.io badges, keep other images."""
         if "img.shields.io" in url:
             return ""
-        return super().image(alt, url, title)
+        return super().image(text, url, title)
 
 
 class PageGenerator:
@@ -319,7 +319,7 @@ class PageGenerator:
         
         title, content_html = hero.get("title", "Welcome"), hero.get("content", "")
 
-        buttons = []
+        buttons: list[str] = []
         if links.get("template"):
             link = links["template"]
             buttons.append(

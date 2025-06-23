@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -95,7 +96,7 @@ def tag_repos(
 
 def _parse_repos_input(repos_input: str, client: GitHubClient) -> list[tuple[str, str]]:
     """Parse repository input and return list of (owner, repo) tuples."""
-    repos = []
+    repos: list[tuple[str, str]] = []
 
     # Check if it's a file
     if Path(repos_input).exists():
@@ -141,14 +142,14 @@ def _parse_repo_string(repo_string: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
-def _show_summary(results: list[dict], dry_run: bool) -> None:
+def _show_summary(results: list[dict[str, Any]], dry_run: bool) -> None:
     """Display summary of tagging results."""
     console.print("\n[bold]📊 SUMMARY[/bold]")
 
     # Count results by status
-    status_counts = {}
+    status_counts: dict[str, int] = {}
     for result in results:
-        status = result['status']
+        status: str = result['status']
         status_counts[status] = status_counts.get(status, 0) + 1
 
     # Create summary table
@@ -178,7 +179,7 @@ def _show_summary(results: list[dict], dry_run: bool) -> None:
             console.print(f"  [red]•[/red] {error['repo']}: {error.get('message', 'Unknown error')}")
 
 
-def _save_results(results: list[dict], output_path: str, dry_run: bool, force: bool) -> None:
+def _save_results(results: list[dict[str, Any]], output_path: str, dry_run: bool, force: bool) -> None:
     """Save results to JSON file."""
     from datetime import datetime
 

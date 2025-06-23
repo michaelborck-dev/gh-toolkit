@@ -1,6 +1,6 @@
 [project]
 name = "gh-toolkit"
-version = "0.9.0"
+version = "0.10.0"
 description = "GitHub repository portfolio management and presentation toolkit"
 readme = "README.md"
 authors = [
@@ -81,6 +81,15 @@ reportMissingImports = true
 reportMissingTypeStubs = false
 reportUnusedImport = true
 reportUnusedVariable = true
+reportUnnecessaryTypeIgnoreComment = true
+reportPrivateUsage = true
+reportConstantRedefinition = true
+reportIncompatibleMethodOverride = true
+reportIncompatibleVariableOverride = true
+reportUninitializedInstanceVariable = true
+strictListInference = true
+strictDictionaryInference = true
+strictSetInference = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"

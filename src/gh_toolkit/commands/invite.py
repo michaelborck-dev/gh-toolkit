@@ -1,6 +1,7 @@
 """Invitation management commands."""
 
 import os
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -282,7 +283,7 @@ def leave_repositories(
         raise typer.Exit(1)
 
 
-def _display_repo_invitations_table(invitations: list[dict]) -> None:
+def _display_repo_invitations_table(invitations: list[dict[str, Any]]) -> None:
     """Display repository invitations in a table."""
     table = Table(title="Repository Invitations")
     table.add_column("Repository", style="cyan")
@@ -309,7 +310,7 @@ def _display_repo_invitations_table(invitations: list[dict]) -> None:
     console.print(table)
 
 
-def _display_org_invitations_table(invitations: list[dict]) -> None:
+def _display_org_invitations_table(invitations: list[dict[str, Any]]) -> None:
     """Display organization invitations in a table."""
     table = Table(title="Organization Invitations")
     table.add_column("Organization", style="cyan")
