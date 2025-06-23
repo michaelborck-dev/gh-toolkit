@@ -1,6 +1,7 @@
 """Repository management commands."""
 
 import os
+from pathlib import Path
 from typing import List, Optional
 
 import typer
@@ -9,6 +10,7 @@ from rich.table import Table
 from rich.text import Text
 
 from gh_toolkit.core.github_client import GitHubClient, GitHubAPIError
+from gh_toolkit.core.repo_extractor import RepositoryExtractor
 
 console = Console()
 
@@ -212,3 +214,126 @@ def _display_verbose_repos(repos: List[dict]) -> None:
         
         if repo.get("homepage"):
             console.print(f"   Homepage: [link]{repo['homepage']}[/link]")
+
+
+def extract_repos(
+    repos_input: str = typer.Argument(help="File with repo list (owner/repo per line) or single owner/repo"),
+    token: Optional[str] = typer.Option(
+        None, "--token", "-t", help="GitHub token (or set GITHUB_TOKEN env var)"
+    ),
+    anthropic_key: Optional[str] = typer.Option(
+        None, "--anthropic-key", help="Anthropic API key for LLM categorization (or set ANTHROPIC_API_KEY env var)"
+    ),
+    output: str = typer.Option("repos_data.json", "--output", "-o", help="Output JSON file"),
+    show_confidence: bool = typer.Option(False, "--show-confidence", help="Show categorization confidence details"),
+) -> None:
+    """Extract comprehensive data from GitHub repositories with LLM categorization."""
+    
+    try:
+        # Use provided token or fallback to environment
+        github_token = token or os.environ.get("GITHUB_TOKEN")
+        if not github_token:
+            console.print("[yellow]Warning: No GitHub token provided[/yellow]")
+            console.print("Rate limits will be much lower without authentication")
+            console.print("Set GITHUB_TOKEN environment variable or use --token option")
+            console.print()
+        
+        # Get Anthropic key for LLM categorization
+        anthropic_api_key = anthropic_key or os.environ.get("ANTHROPIC_API_KEY")
+        if not anthropic_api_key:
+            console.print("[yellow]Info: No Anthropic API key provided[/yellow]")
+            console.print("Will use rule-based categorization instead of LLM")
+            console.print("For LLM categorization, set ANTHROPIC_API_KEY or use --anthropic-key")
+            console.print()
+        
+        # Initialize client and extractor
+        client = GitHubClient(github_token)
+        extractor = RepositoryExtractor(client, anthropic_api_key)
+        
+        # Determine if input is a file or single repo
+        repo_list = []
+        input_path = Path(repos_input)
+        
+        if input_path.exists() and input_path.is_file():
+            # Read repo list from file
+            console.print(f"[blue]Reading repository list from {input_path}[/blue]")
+            try:
+                with open(input_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            repo_list.append(line)
+            except Exception as e:
+                console.print(f"[red]Error reading file {input_path}: {e}[/red]")
+                raise typer.Exit(1)
+        else:
+            # Single repository
+            if '/' not in repos_input:
+                console.print("[red]Error: Repository must be in 'owner/repo' format[/red]")
+                raise typer.Exit(1)
+            repo_list = [repos_input]
+        
+        if not repo_list:
+            console.print("[red]Error: No repositories to process[/red]")
+            raise typer.Exit(1)
+        
+        console.print(f"[green]Found {len(repo_list)} repository(ies) to extract[/green]")
+        
+        # Extract data
+        console.print("\n[bold]Starting repository data extraction...[/bold]")
+        extracted_data = extractor.extract_multiple_repositories(repo_list)
+        
+        if not extracted_data:
+            console.print("[red]No repositories were successfully extracted[/red]")
+            raise typer.Exit(1)
+        
+        # Save data
+        extractor.save_to_json(extracted_data, output)
+        
+        # Show summary
+        console.print(f"\n[bold green]✓ Successfully extracted {len(extracted_data)} repositories![/bold green]")
+        console.print(f"[red]✗ Failed to extract {len(repo_list) - len(extracted_data)} repositories[/red]")
+        
+        # Category summary
+        categories = {}
+        for repo in extracted_data:
+            cat = repo['category']
+            categories[cat] = categories.get(cat, 0) + 1
+        
+        if categories:
+            console.print("\n[bold]Categories found:[/bold]")
+            for cat, count in sorted(categories.items()):
+                console.print(f"  • [cyan]{cat}[/cyan]: {count} repos")
+        
+        # Show confidence details if requested
+        if show_confidence and extracted_data:
+            console.print("\n[bold]Category Detection Details:[/bold]")
+            table = Table()
+            table.add_column("Repository", style="cyan")
+            table.add_column("Category", style="green")
+            table.add_column("Confidence", justify="center", style="yellow")
+            table.add_column("Reason", style="white", max_width=40)
+            
+            for repo in sorted(extracted_data, key=lambda x: x['category_confidence']):
+                confidence = f"{repo['category_confidence']:.1%}"
+                reason = repo['category_reason']
+                if len(reason) > 37:
+                    reason = reason[:34] + "..."
+                
+                table.add_row(
+                    repo['name'],
+                    repo['category'],
+                    confidence,
+                    reason
+                )
+            
+            console.print(table)
+        
+        console.print(f"\n[bold]Data saved to: [link]{output}[/link][/bold]")
+        
+    except GitHubAPIError as e:
+        console.print(f"[red]GitHub API Error: {e.message}[/red]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Unexpected error: {str(e)}[/red]")
+        raise typer.Exit(1)

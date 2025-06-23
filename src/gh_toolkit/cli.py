@@ -58,21 +58,18 @@ def info() -> None:
 
 
 # Import commands
-from gh_toolkit.commands.repo import list_repos
+from gh_toolkit.commands.repo import list_repos, extract_repos
 from gh_toolkit.commands.invite import accept_invitations, leave_repositories
 
 # Repo commands
 repo_app.command("list")(list_repos)
+repo_app.command("extract")(extract_repos)
 
 # Invite commands
 invite_app.command("accept")(accept_invitations)
 invite_app.command("leave")(leave_repositories)
 
 
-@repo_app.command("extract")
-def repo_extract() -> None:
-    """Extract comprehensive data from repositories."""
-    console.print("📊 Repository extraction - [bold yellow]Coming soon![/bold yellow]")
 
 
 @repo_app.command("tag")

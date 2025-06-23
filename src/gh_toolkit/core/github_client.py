@@ -313,3 +313,96 @@ class GitHubClient:
             return response.status_code in [204, 404]  # 404 means already not a collaborator
         except GitHubAPIError:
             return False
+
+    # Repository data extraction methods
+    
+    def get_repo_readme(self, owner: str, repo: str) -> str:
+        """Get README content from repository.
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            
+        Returns:
+            README content as string
+        """
+        endpoint = f"/repos/{owner}/{repo}/readme"
+        try:
+            response = self._make_request("GET", endpoint)
+            content_data = response.json()
+            
+            # Decode base64 content
+            import base64
+            readme_text = base64.b64decode(content_data['content']).decode('utf-8')
+            return readme_text[:5000]  # Limit to 5000 chars to avoid token limits
+        except:
+            return ""
+
+    def get_repo_releases(self, owner: str, repo: str) -> List[Dict[str, Any]]:
+        """Get releases for a repository.
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            
+        Returns:
+            List of release data
+        """
+        endpoint = f"/repos/{owner}/{repo}/releases"
+        try:
+            response = self._make_request("GET", endpoint)
+            return response.json()
+        except:
+            return []
+
+    def get_repo_topics(self, owner: str, repo: str) -> List[str]:
+        """Get topics for a repository.
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            
+        Returns:
+            List of topic strings
+        """
+        endpoint = f"/repos/{owner}/{repo}/topics"
+        headers = {**self.headers, "Accept": "application/vnd.github.mercy-preview+json"}
+        try:
+            response = self._make_request("GET", endpoint)
+            return response.json().get('names', [])
+        except:
+            return []
+
+    def get_repo_languages(self, owner: str, repo: str) -> Dict[str, int]:
+        """Get programming languages used in repository.
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            
+        Returns:
+            Dictionary of language names to byte counts
+        """
+        endpoint = f"/repos/{owner}/{repo}/languages"
+        try:
+            response = self._make_request("GET", endpoint)
+            return response.json()
+        except:
+            return {}
+
+    def get_repo_pages_info(self, owner: str, repo: str) -> Optional[Dict[str, Any]]:
+        """Get GitHub Pages information for repository.
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            
+        Returns:
+            Pages information or None if not available
+        """
+        endpoint = f"/repos/{owner}/{repo}/pages"
+        try:
+            response = self._make_request("GET", endpoint)
+            return response.json()
+        except:
+            return None
