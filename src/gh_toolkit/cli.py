@@ -57,11 +57,11 @@ def info() -> None:
     console.print(table)
 
 
-# Placeholder commands for repo subcommand
-@repo_app.command("list")
-def repo_list() -> None:
-    """List repositories with filtering options."""
-    console.print("🔍 Repository listing - [bold yellow]Coming soon![/bold yellow]")
+# Import repo commands
+from gh_toolkit.commands.repo import list_repos
+
+# Repo commands
+repo_app.command("list")(list_repos)
 
 
 @repo_app.command("extract")
