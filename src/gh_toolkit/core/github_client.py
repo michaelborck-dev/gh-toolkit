@@ -2,7 +2,7 @@
 
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import requests
 from rich.console import Console
@@ -14,7 +14,7 @@ console = Console()
 class GitHubAPIError(Exception):
     """Custom exception for GitHub API errors."""
 
-    def __init__(self, message: str, status_code: Optional[int] = None):
+    def __init__(self, message: str, status_code: int | None = None):
         self.message = message
         self.status_code = status_code
         super().__init__(self.message)
@@ -23,7 +23,7 @@ class GitHubAPIError(Exception):
 class GitHubClient:
     """GitHub API client with rate limiting and error handling."""
 
-    def __init__(self, token: Optional[str] = None):
+    def __init__(self, token: str | None = None):
         """Initialize GitHub client.
         
         Args:
@@ -31,12 +31,12 @@ class GitHubClient:
                    GITHUB_TOKEN environment variable.
         """
         self.token = token or os.environ.get("GITHUB_TOKEN")
-        
+
         self.headers = {
             "Accept": "application/vnd.github.v3+json",
             "User-Agent": "gh-toolkit/0.1.0",
         }
-        
+
         if self.token:
             self.headers["Authorization"] = f"token {self.token}"
         self.base_url = "https://api.github.com"
@@ -44,11 +44,11 @@ class GitHubClient:
         self.session.headers.update(self.headers)
 
     def _make_request(
-        self, 
-        method: str, 
-        endpoint: str, 
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
+        self,
+        method: str,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
         timeout: int = 30
     ) -> requests.Response:
         """Make a request to GitHub API with error handling.
@@ -67,7 +67,7 @@ class GitHubClient:
             GitHubAPIError: If the request fails
         """
         url = f"{self.base_url}{endpoint}"
-        
+
         try:
             response = self.session.request(
                 method=method,
@@ -76,13 +76,13 @@ class GitHubClient:
                 json=json_data,
                 timeout=timeout
             )
-            
+
             # Check rate limiting
             if response.status_code == 403 and "rate limit" in response.text.lower():
                 reset_time = int(response.headers.get("X-RateLimit-Reset", 0))
                 current_time = int(time.time())
                 wait_time = max(0, reset_time - current_time)
-                
+
                 if wait_time > 0:
                     console.print(
                         f"[yellow]Rate limit reached. Waiting {wait_time} seconds...[/yellow]"
@@ -90,7 +90,7 @@ class GitHubClient:
                     time.sleep(wait_time + 1)
                     # Retry the request
                     return self._make_request(method, endpoint, params, json_data, timeout)
-            
+
             # Check for other errors
             if not response.ok:
                 error_msg = f"GitHub API error: {response.status_code}"
@@ -100,21 +100,21 @@ class GitHubClient:
                         error_msg += f" - {error_data['message']}"
                 except:
                     error_msg += f" - {response.text[:200]}"
-                
+
                 raise GitHubAPIError(error_msg, response.status_code)
-            
+
             return response
-            
+
         except requests.exceptions.RequestException as e:
             raise GitHubAPIError(f"Request failed: {str(e)}")
 
     def get_paginated(
-        self, 
-        endpoint: str, 
-        params: Optional[Dict[str, Any]] = None,
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
         per_page: int = 100,
-        max_pages: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        max_pages: int | None = None
+    ) -> list[dict[str, Any]]:
         """Get all pages from a paginated GitHub API endpoint.
         
         Args:
@@ -130,7 +130,7 @@ class GitHubClient:
         page = 1
         params = params or {}
         params["per_page"] = min(per_page, 100)
-        
+
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -138,35 +138,35 @@ class GitHubClient:
             transient=True
         ) as progress:
             task = progress.add_task("Fetching data...", total=None)
-            
+
             while True:
                 if max_pages and page > max_pages:
                     break
-                    
+
                 params["page"] = page
                 progress.update(task, description=f"Fetching page {page}...")
-                
+
                 response = self._make_request("GET", endpoint, params)
                 page_items = response.json()
-                
+
                 if not page_items:
                     break
-                    
+
                 items.extend(page_items)
                 page += 1
-                
+
                 # Small delay to be nice to the API
                 time.sleep(0.1)
-        
+
         return items
 
     def get_user_repos(
-        self, 
-        username: Optional[str] = None,
+        self,
+        username: str | None = None,
         repo_type: str = "all",
         visibility: str = "all",
         affiliation: str = "owner,collaborator,organization_member"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get repositories for a user.
         
         Args:
@@ -186,7 +186,7 @@ class GitHubClient:
             # Get repos for authenticated user
             endpoint = "/user/repos"
             params = {}
-            
+
             # Only add type if visibility/affiliation are default
             if visibility == "all" and affiliation == "owner,collaborator,organization_member":
                 params["type"] = repo_type
@@ -194,10 +194,10 @@ class GitHubClient:
                 # Use visibility and affiliation (cannot combine with type)
                 params["visibility"] = visibility
                 params["affiliation"] = affiliation
-        
+
         return self.get_paginated(endpoint, params)
 
-    def get_org_repos(self, org_name: str, repo_type: str = "all") -> List[Dict[str, Any]]:
+    def get_org_repos(self, org_name: str, repo_type: str = "all") -> list[dict[str, Any]]:
         """Get repositories for an organization.
         
         Args:
@@ -211,7 +211,7 @@ class GitHubClient:
         params = {"type": repo_type}
         return self.get_paginated(endpoint, params)
 
-    def get_user_info(self, username: Optional[str] = None) -> Dict[str, Any]:
+    def get_user_info(self, username: str | None = None) -> dict[str, Any]:
         """Get user information.
         
         Args:
@@ -224,11 +224,11 @@ class GitHubClient:
             endpoint = f"/users/{username}"
         else:
             endpoint = "/user"
-            
+
         response = self._make_request("GET", endpoint)
         return response.json()
 
-    def get_repo_info(self, owner: str, repo: str) -> Dict[str, Any]:
+    def get_repo_info(self, owner: str, repo: str) -> dict[str, Any]:
         """Get repository information.
         
         Args:
@@ -243,8 +243,8 @@ class GitHubClient:
         return response.json()
 
     # Invitation management methods
-    
-    def get_repository_invitations(self) -> List[Dict[str, Any]]:
+
+    def get_repository_invitations(self) -> list[dict[str, Any]]:
         """Get pending repository invitations for the authenticated user.
         
         Returns:
@@ -270,7 +270,7 @@ class GitHubClient:
         except GitHubAPIError:
             return False
 
-    def get_organization_invitations(self) -> List[Dict[str, Any]]:
+    def get_organization_invitations(self) -> list[dict[str, Any]]:
         """Get pending organization invitations for the authenticated user.
         
         Returns:
@@ -315,7 +315,7 @@ class GitHubClient:
             return False
 
     # Repository data extraction methods
-    
+
     def get_repo_readme(self, owner: str, repo: str) -> str:
         """Get README content from repository.
         
@@ -330,7 +330,7 @@ class GitHubClient:
         try:
             response = self._make_request("GET", endpoint)
             content_data = response.json()
-            
+
             # Decode base64 content
             import base64
             readme_text = base64.b64decode(content_data['content']).decode('utf-8')
@@ -338,7 +338,7 @@ class GitHubClient:
         except:
             return ""
 
-    def get_repo_releases(self, owner: str, repo: str) -> List[Dict[str, Any]]:
+    def get_repo_releases(self, owner: str, repo: str) -> list[dict[str, Any]]:
         """Get releases for a repository.
         
         Args:
@@ -355,7 +355,7 @@ class GitHubClient:
         except:
             return []
 
-    def get_repo_topics(self, owner: str, repo: str) -> List[str]:
+    def get_repo_topics(self, owner: str, repo: str) -> list[str]:
         """Get topics for a repository.
         
         Args:
@@ -373,7 +373,7 @@ class GitHubClient:
         except:
             return []
 
-    def get_repo_languages(self, owner: str, repo: str) -> Dict[str, int]:
+    def get_repo_languages(self, owner: str, repo: str) -> dict[str, int]:
         """Get programming languages used in repository.
         
         Args:
@@ -390,7 +390,7 @@ class GitHubClient:
         except:
             return {}
 
-    def get_repo_pages_info(self, owner: str, repo: str) -> Optional[Dict[str, Any]]:
+    def get_repo_pages_info(self, owner: str, repo: str) -> dict[str, Any] | None:
         """Get GitHub Pages information for repository.
         
         Args:

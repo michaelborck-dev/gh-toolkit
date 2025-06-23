@@ -1,6 +1,6 @@
 [project]
 name = "gh-toolkit"
-version = "0.4.0"
+version = "0.6.0"
 description = "GitHub repository portfolio management and presentation toolkit"
 readme = "README.md"
 authors = [
@@ -104,5 +104,8 @@ exclude_lines = [
 [dependency-groups]
 dev = [
     "build>=1.2.2.post1",
+    "pytest-cov>=6.2.1",
+    "pytest-mock>=3.14.1",
+    "responses>=0.25.7",
     "twine>=6.1.0",
 ]
