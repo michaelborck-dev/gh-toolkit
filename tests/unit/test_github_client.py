@@ -19,7 +19,7 @@ class TestGitHubClient:
         assert "Authorization" in client.headers
         assert client.headers["Authorization"] == f"token {mock_github_token}"
     
-    def test_init_without_token(self):
+    def test_init_without_token(self, no_env_vars):
         """Test client initialization without token."""
         client = GitHubClient()
         assert client.token is None
@@ -36,7 +36,8 @@ class TestGitHubClient:
         )
         
         client = GitHubClient(mock_github_token)
-        result = client._make_request("GET", "/user")
+        response = client._make_request("GET", "/user")
+        result = response.json()
         assert result["login"] == "testuser"
     
     @responses.activate
@@ -82,7 +83,8 @@ class TestGitHubClient:
         
         # pytest-mock provides the mocker fixture
         mock_sleep = mocker.patch("time.sleep")
-        result = client._make_request("GET", "/user")
+        response = client._make_request("GET", "/user")
+        result = response.json()
         assert result["login"] == "testuser"
         mock_sleep.assert_called_once()
     
