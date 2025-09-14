@@ -212,3 +212,192 @@ class TestGitHubClient:
         assert str(error) == "GitHub API Error (404): Test error"
         assert error.status_code == 404
         assert error.message == "Test error"
+
+    # Transfer functionality tests
+
+    @responses.activate
+    def test_transfer_repository_success(self, mock_github_token):
+        """Test successful repository transfer."""
+        transfer_response = {
+            "id": 123456789,
+            "name": "test-repo",
+            "full_name": "dest-org/test-repo",
+            "description": "A transferred repository",
+            "private": False,
+            "html_url": "https://github.com/dest-org/test-repo",
+            "clone_url": "https://github.com/dest-org/test-repo.git",
+            "ssh_url": "git@github.com:dest-org/test-repo.git",
+            "owner": {
+                "id": 987654321,
+                "login": "dest-org",
+                "type": "Organization"
+            },
+            "created_at": "2023-01-01T10:00:00Z",
+            "updated_at": "2023-12-01T10:00:00Z"
+        }
+
+        responses.add(
+            responses.POST,
+            "https://api.github.com/repos/testuser/test-repo/transfer",
+            json=transfer_response,
+            status=202
+        )
+
+        client = GitHubClient(mock_github_token)
+        result = client.transfer_repository("testuser", "test-repo", "dest-org")
+
+        assert result["name"] == "test-repo"
+        assert result["full_name"] == "dest-org/test-repo"
+        assert result["owner"]["login"] == "dest-org"
+
+        # Verify request payload
+        request = responses.calls[0].request
+        import json
+        payload = json.loads(request.body)
+        assert payload == {"new_owner": "dest-org"}
+
+    @responses.activate
+    def test_transfer_repository_with_new_name(self, mock_github_token):
+        """Test repository transfer with new name."""
+        transfer_response = {
+            "id": 123456789,
+            "name": "new-repo-name",
+            "full_name": "dest-org/new-repo-name",
+            "description": "A transferred repository",
+            "private": False,
+            "html_url": "https://github.com/dest-org/new-repo-name",
+            "clone_url": "https://github.com/dest-org/new-repo-name.git",
+            "ssh_url": "git@github.com:dest-org/new-repo-name.git",
+            "owner": {
+                "id": 987654321,
+                "login": "dest-org",
+                "type": "Organization"
+            },
+            "created_at": "2023-01-01T10:00:00Z",
+            "updated_at": "2023-12-01T10:00:00Z"
+        }
+
+        responses.add(
+            responses.POST,
+            "https://api.github.com/repos/testuser/test-repo/transfer",
+            json=transfer_response,
+            status=202
+        )
+
+        client = GitHubClient(mock_github_token)
+        result = client.transfer_repository("testuser", "test-repo", "dest-org", "new-repo-name")
+
+        assert result["name"] == "new-repo-name"
+        assert result["full_name"] == "dest-org/new-repo-name"
+
+        # Verify request payload includes new_name
+        request = responses.calls[0].request
+        import json
+        payload = json.loads(request.body)
+        assert payload == {"new_owner": "dest-org", "new_name": "new-repo-name"}
+
+    @responses.activate
+    def test_transfer_repository_error(self, mock_github_token):
+        """Test repository transfer error handling."""
+        responses.add(
+            responses.POST,
+            "https://api.github.com/repos/testuser/test-repo/transfer",
+            json={"message": "Repository not found or access denied"},
+            status=404
+        )
+
+        client = GitHubClient(mock_github_token)
+        with pytest.raises(GitHubAPIError) as exc_info:
+            client.transfer_repository("testuser", "test-repo", "dest-org")
+
+        assert "Repository not found or access denied" in str(exc_info.value)
+        assert exc_info.value.status_code == 404
+
+    @responses.activate
+    def test_get_repository_transfers(self, mock_github_token):
+        """Test getting repository transfers."""
+        invitations_response = [
+            {
+                "id": 123,
+                "repository": {
+                    "id": 456,
+                    "name": "test-repo",
+                    "full_name": "testuser/test-repo"
+                },
+                "invitee": {
+                    "id": 789,
+                    "login": "dest-user"
+                },
+                "inviter": {
+                    "id": 101112,
+                    "login": "source-user"
+                },
+                "permissions": "write",
+                "created_at": "2023-12-01T10:00:00Z"
+            }
+        ]
+
+        responses.add(
+            responses.GET,
+            "https://api.github.com/user/repository_invitations",
+            json=invitations_response,
+            status=200
+        )
+
+        client = GitHubClient(mock_github_token)
+        result = client.get_repository_transfers()
+
+        assert len(result) == 1
+        assert result[0]["id"] == 123
+        assert result[0]["repository"]["name"] == "test-repo"
+        assert result[0]["permissions"] == "write"
+
+    @responses.activate
+    def test_get_organization_transfers(self, mock_github_token):
+        """Test getting organization transfers."""
+        org_invitations_response = [
+            {
+                "id": 456,
+                "login": "invited-user",
+                "email": "user@example.com",
+                "role": "direct_member",
+                "created_at": "2023-12-01T10:00:00Z",
+                "inviter": {
+                    "id": 789,
+                    "login": "admin-user"
+                },
+                "team_count": 2,
+                "invitation_teams_url": "https://api.github.com/organizations/123/invitations/456/teams"
+            }
+        ]
+
+        responses.add(
+            responses.GET,
+            "https://api.github.com/orgs/test-org/invitations",
+            json=org_invitations_response,
+            status=200
+        )
+
+        client = GitHubClient(mock_github_token)
+        result = client.get_organization_transfers("test-org")
+
+        assert len(result) == 1
+        assert result[0]["id"] == 456
+        assert result[0]["login"] == "invited-user"
+        assert result[0]["role"] == "direct_member"
+
+    @responses.activate
+    def test_get_organization_transfers_error(self, mock_github_token):
+        """Test organization transfers error handling."""
+        responses.add(
+            responses.GET,
+            "https://api.github.com/orgs/private-org/invitations",
+            json={"message": "Not Found"},
+            status=404
+        )
+
+        client = GitHubClient(mock_github_token)
+        result = client.get_organization_transfers("private-org")
+
+        # Should return empty list on error
+        assert result == []

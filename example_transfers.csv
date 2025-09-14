@@ -1,0 +1,12 @@
+# Example repository transfer file
+# Format: owner/repo,destination_org,new_name
+# The third column (new_name) is optional
+
+# Transfer repositories to an organization
+user/my-python-project,my-org,
+user/data-analysis-tool,my-org,analysis-toolkit
+org1/shared-library,org2,
+
+# Lines starting with # are ignored
+# Empty destination will be skipped with a warning
+user/skip-this-repo,

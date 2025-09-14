@@ -85,6 +85,39 @@ class GitHubInvitation(TypedDict):
     permissions: str
 
 
+class GitHubTransferRequest(TypedDict):
+    """GitHub repository transfer request."""
+    new_owner: str
+    new_name: NotRequired[str]
+
+
+class GitHubTransferResponse(TypedDict):
+    """GitHub repository transfer response."""
+    id: int
+    name: str
+    full_name: str
+    description: str | None
+    private: bool
+    html_url: str
+    clone_url: str
+    ssh_url: str
+    owner: GitHubUser
+    created_at: str
+    updated_at: str
+
+
+class GitHubOrganizationInvitation(TypedDict):
+    """GitHub organization invitation information."""
+    id: int
+    login: str
+    email: str | None
+    role: Literal["admin", "direct_member", "billing_manager"]
+    created_at: str
+    inviter: GitHubUser
+    team_count: int
+    invitation_teams_url: str
+
+
 class GitHubWorkflow(TypedDict):
     """GitHub Actions workflow information."""
     id: int

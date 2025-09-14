@@ -392,11 +392,11 @@ class GitHubClient:
 
     def get_repo_pages_info(self, owner: str, repo: str) -> dict[str, Any] | None:
         """Get GitHub Pages information for repository.
-        
+
         Args:
             owner: Repository owner
             repo: Repository name
-            
+
         Returns:
             Pages information or None if not available
         """
@@ -406,3 +406,63 @@ class GitHubClient:
             return response.json()
         except:
             return None
+
+    # Repository transfer methods
+
+    def transfer_repository(
+        self,
+        owner: str,
+        repo: str,
+        new_owner: str,
+        new_name: str | None = None
+    ) -> dict[str, Any]:
+        """Transfer repository ownership to another user or organization.
+
+        Args:
+            owner: Current repository owner
+            repo: Repository name
+            new_owner: Username or organization name to transfer to
+            new_name: Optional new repository name (defaults to current name)
+
+        Returns:
+            Transfer response data
+
+        Raises:
+            GitHubAPIError: If the transfer fails
+        """
+        endpoint = f"/repos/{owner}/{repo}/transfer"
+
+        json_data: dict[str, str] = {"new_owner": new_owner}
+        if new_name:
+            json_data["new_name"] = new_name
+
+        response = self._make_request("POST", endpoint, json_data=json_data)
+        return response.json()
+
+    def get_repository_transfers(self) -> list[dict[str, Any]]:
+        """Get pending repository transfer invitations for the authenticated user.
+
+        Note: This uses the repository invitations endpoint as GitHub doesn't
+        have a separate transfers endpoint for listing pending transfers.
+
+        Returns:
+            List of pending repository invitations/transfers
+        """
+        # Repository invitations are effectively transfer invitations
+        return self.get_repository_invitations()
+
+    def get_organization_transfers(self, org_name: str) -> list[dict[str, Any]]:
+        """Get pending repository transfers for an organization.
+
+        Args:
+            org_name: Organization name
+
+        Returns:
+            List of pending transfer invitations for the organization
+        """
+        endpoint = f"/orgs/{org_name}/invitations"
+        try:
+            return self.get_paginated(endpoint)
+        except GitHubAPIError:
+            # Fallback to empty list if we don't have access
+            return []

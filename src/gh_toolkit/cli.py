@@ -17,12 +17,14 @@ console = Console()
 # Create subcommands
 repo_app = typer.Typer(help="Repository management commands")
 invite_app = typer.Typer(help="Invitation management commands")
+transfer_app = typer.Typer(help="Repository transfer management commands")
 site_app = typer.Typer(help="Site generation commands")
 page_app = typer.Typer(help="Page generation commands")
 
 # Register subcommands
 app.add_typer(repo_app, name="repo")
 app.add_typer(invite_app, name="invite")
+app.add_typer(transfer_app, name="transfer")
 app.add_typer(site_app, name="site")
 app.add_typer(page_app, name="page")
 
@@ -64,6 +66,7 @@ from gh_toolkit.commands.page import generate_page
 from gh_toolkit.commands.repo import extract_repos, list_repos, health_check, clone_repos
 from gh_toolkit.commands.site import generate_site
 from gh_toolkit.commands.tag import tag_repos
+from gh_toolkit.commands.transfer import initiate_transfer, list_transfers, accept_transfers
 
 # Repo commands
 repo_app.command("list")(list_repos)
@@ -75,6 +78,11 @@ repo_app.command("clone")(clone_repos)
 # Invite commands
 invite_app.command("accept")(accept_invitations)
 invite_app.command("leave")(leave_repositories)
+
+# Transfer commands
+transfer_app.command("initiate")(initiate_transfer)
+transfer_app.command("list")(list_transfers)
+transfer_app.command("accept")(accept_transfers)
 
 # Site commands
 site_app.command("generate")(generate_site)
