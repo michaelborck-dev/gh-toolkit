@@ -1,7 +1,6 @@
 """Page generation commands for converting README.md to HTML or Jekyll."""
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -20,7 +19,7 @@ def generate_page(
         file_okay=True,
         dir_okay=False,
     ),
-    output: Optional[Path] = typer.Option(
+    output: Path | None = typer.Option(
         None,
         "--output",
         "-o",
@@ -31,12 +30,12 @@ def generate_page(
         "--jekyll",
         help="Generate Jekyll-compatible markdown with front matter",
     ),
-    title: Optional[str] = typer.Option(
+    title: str | None = typer.Option(
         None,
         "--title",
         help="Override page title (for Jekyll front matter)",
     ),
-    description: Optional[str] = typer.Option(
+    description: str | None = typer.Option(
         None,
         "--description",
         help="Override description (for Jekyll front matter)",
@@ -44,14 +43,14 @@ def generate_page(
 ) -> None:
     """
     Generate a beautiful landing page from README.md file.
-    
+
     Creates either a standalone HTML page or Jekyll-compatible markdown
     with front matter for integration with Jekyll sites.
     """
     try:
         # Read the README file
         console.print(f"📖 Reading README from [blue]{readme_file}[/blue]...")
-        with open(readme_file, "r", encoding="utf-8") as f:
+        with open(readme_file, encoding="utf-8") as f:
             markdown_content = f.read()
 
         # Determine output file if not specified
@@ -66,18 +65,18 @@ def generate_page(
             console=console,
         ) as progress:
             task = progress.add_task("🔄 Parsing markdown content...", total=None)
-            
+
             generator = PageGenerator(markdown_content)
             generator.parse_markdown()
-            
+
             # Override title/description if provided
             if title:
                 generator.title = title
             if description:
                 generator.description = description
-            
+
             progress.update(task, description="🎨 Generating page...")
-            
+
             # Generate the appropriate output
             if jekyll:
                 final_output = generator.render_jekyll()
@@ -97,15 +96,15 @@ def generate_page(
         console.print(f"\n{icon} [bold green]Page generated successfully![/bold green]")
         console.print(f"📄 Output: [blue]{output}[/blue]")
         console.print(f"📋 Format: {output_type}")
-        
+
         if jekyll:
             console.print("💡 [dim]Ready for Jekyll site integration[/dim]")
         else:
             console.print("💡 [dim]Ready to deploy as standalone page[/dim]")
 
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         console.print(f"❌ [red]Error:[/red] README file not found at {readme_file}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         console.print(f"❌ [red]Error generating page:[/red] {str(e)}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e

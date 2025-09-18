@@ -36,7 +36,7 @@ def sample_repo_data():
         "disabled": False,
         "pushed_at": "2023-12-01T10:00:00Z",
         "created_at": "2023-01-01T10:00:00Z",
-        "updated_at": "2023-12-01T10:00:00Z"
+        "updated_at": "2023-12-01T10:00:00Z",
     }
 
 
@@ -51,37 +51,30 @@ def sample_user_repos():
             "language": "Python",
             "stargazers_count": 10,
             "forks_count": 2,
-            "private": False
+            "private": False,
         },
         {
-            "name": "repo2", 
+            "name": "repo2",
             "full_name": "testuser/repo2",
             "description": "Second test repo",
             "language": "JavaScript",
             "stargazers_count": 5,
             "forks_count": 1,
-            "private": False
-        }
+            "private": False,
+        },
     ]
 
 
 @pytest.fixture
 def sample_languages():
     """Sample repository languages data."""
-    return {
-        "Python": 15432,
-        "JavaScript": 8901,
-        "HTML": 2345,
-        "CSS": 1234
-    }
+    return {"Python": 15432, "JavaScript": 8901, "HTML": 2345, "CSS": 1234}
 
 
 @pytest.fixture
 def sample_repo_topics():
     """Sample repository topics response."""
-    return {
-        "names": ["python", "cli", "tool", "github"]
-    }
+    return {"names": ["python", "cli", "tool", "github"]}
 
 
 @pytest.fixture
@@ -120,17 +113,17 @@ def mock_github_api():
         headers = {
             "X-RateLimit-Limit": "5000",
             "X-RateLimit-Remaining": "4999",
-            "X-RateLimit-Reset": "1640995200"
+            "X-RateLimit-Reset": "1640995200",
         }
-        
+
         # Add common API endpoints
         rsps.add(
             responses.GET,
             "https://api.github.com/user",
             json={"login": "testuser", "id": 12345},
-            headers=headers
+            headers=headers,
         )
-        
+
         yield rsps
 
 
@@ -141,7 +134,7 @@ def mock_anthropic_client(mocker):
     mock_response = mocker.Mock()
     mock_response.content = [mocker.Mock(text="python, cli, tool, testing, automation")]
     mock_client.messages.create.return_value = mock_response
-    
+
     # Use mocker.patch instead of patch
     mocker.patch("gh_toolkit.core.topic_tagger.Anthropic", return_value=mock_client)
     yield mock_client
@@ -175,20 +168,20 @@ def sample_extracted_repos():
             "category_confidence": 0.92,
             "topics": ["react", "javascript", "web"],
             "languages": ["JavaScript", "CSS", "HTML"],
-            "license": "MIT"
+            "license": "MIT",
         },
         {
             "name": "data-tool",
             "description": "Python data analysis toolkit",
-            "url": "https://github.com/user/data-tool", 
+            "url": "https://github.com/user/data-tool",
             "stars": 78,
             "forks": 23,
             "category": "Python Package",
             "category_confidence": 0.88,
             "topics": ["python", "data", "analysis"],
             "languages": ["Python", "Jupyter Notebook"],
-            "license": "Apache-2.0"
-        }
+            "license": "Apache-2.0",
+        },
     ]
 
 
@@ -200,18 +193,18 @@ def sample_site_metadata():
             "icon": "🌐",
             "key_features": [
                 "Responsive design",
-                "Modern React hooks", 
-                "TypeScript support"
-            ]
+                "Modern React hooks",
+                "TypeScript support",
+            ],
         },
         "data-tool": {
             "icon": "📊",
             "key_features": [
                 "Pandas integration",
                 "Jupyter notebooks",
-                "Statistical analysis"
-            ]
-        }
+                "Statistical analysis",
+            ],
+        },
     }
 
 

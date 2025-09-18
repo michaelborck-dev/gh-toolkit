@@ -1,9 +1,7 @@
 """Integration tests for page generation commands."""
 
-import json
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from gh_toolkit.cli import app
@@ -16,7 +14,7 @@ class TestPageCommands:
         """Test page subcommand help."""
         runner = CliRunner()
         result = runner.invoke(app, ["page", "--help"])
-        
+
         assert result.exit_code == 0
         assert "Page generation commands" in result.stdout
 
@@ -24,7 +22,7 @@ class TestPageCommands:
         """Test page generate command help."""
         runner = CliRunner()
         result = runner.invoke(app, ["page", "generate", "--help"])
-        
+
         assert result.exit_code == 0
         assert "Generate a beautiful landing page" in result.stdout
         assert "--jekyll" in result.stdout
@@ -35,7 +33,7 @@ class TestPageCommands:
         """Test page generate with missing README file."""
         runner = CliRunner()
         result = runner.invoke(app, ["page", "generate", "nonexistent.md"])
-        
+
         # Typer returns exit code 2 for file validation errors
         assert result.exit_code == 2
         # Error message is in stderr for typer validation errors
@@ -72,21 +70,19 @@ MIT License
 """
         readme_file = tmp_path / "README.md"
         readme_file.write_text(readme_content)
-        
+
         output_file = tmp_path / "output.html"
-        
+
         runner = CliRunner()
-        result = runner.invoke(app, [
-            "page", "generate", 
-            str(readme_file),
-            "--output", str(output_file)
-        ])
-        
+        result = runner.invoke(
+            app, ["page", "generate", str(readme_file), "--output", str(output_file)]
+        )
+
         assert result.exit_code == 0
         assert "Page generated successfully" in result.stdout
         assert "standalone HTML" in result.stdout
         assert output_file.exists()
-        
+
         content = output_file.read_text()
         assert "<!DOCTYPE html>" in content
         assert "Awesome Project" in content
@@ -111,22 +107,27 @@ Configure your Jekyll site.
 """
         readme_file = tmp_path / "README.md"
         readme_file.write_text(readme_content)
-        
+
         output_file = tmp_path / "index.md"
-        
+
         runner = CliRunner()
-        result = runner.invoke(app, [
-            "page", "generate",
-            str(readme_file),
-            "--output", str(output_file),
-            "--jekyll"
-        ])
-        
+        result = runner.invoke(
+            app,
+            [
+                "page",
+                "generate",
+                str(readme_file),
+                "--output",
+                str(output_file),
+                "--jekyll",
+            ],
+        )
+
         assert result.exit_code == 0
         assert "Page generated successfully" in result.stdout
         assert "Jekyll markdown" in result.stdout
         assert output_file.exists()
-        
+
         content = output_file.read_text()
         assert "---" in content
         assert "layout: default" in content
@@ -147,26 +148,24 @@ Testing automatic output file detection.
 """
         readme_file = tmp_path / "README.md"
         readme_file.write_text(readme_content)
-        
+
         # Change to temp directory for relative output
         original_cwd = Path.cwd()
         try:
             import os
+
             os.chdir(tmp_path)
-            
+
             runner = CliRunner()
-            result = runner.invoke(app, [
-                "page", "generate",
-                "README.md"
-            ])
-            
+            result = runner.invoke(app, ["page", "generate", "README.md"])
+
             assert result.exit_code == 0
             assert "index.html" in result.stdout
-            
+
             # Should create index.html by default
             index_html = tmp_path / "index.html"
             assert index_html.exists()
-            
+
         finally:
             os.chdir(original_cwd)
 
@@ -183,30 +182,27 @@ Some content here.
 """
         readme_file = tmp_path / "README.md"
         readme_file.write_text(readme_content)
-        
+
         # Change to temp directory
         original_cwd = Path.cwd()
         try:
             import os
+
             os.chdir(tmp_path)
-            
+
             runner = CliRunner()
-            result = runner.invoke(app, [
-                "page", "generate",
-                "README.md",
-                "--jekyll"
-            ])
-            
+            result = runner.invoke(app, ["page", "generate", "README.md", "--jekyll"])
+
             assert result.exit_code == 0
             assert "index.md" in result.stdout
-            
+
             # Should create index.md for Jekyll
             index_md = tmp_path / "index.md"
             assert index_md.exists()
-            
+
             content = index_md.read_text()
             assert "layout: default" in content
-            
+
         finally:
             os.chdir(original_cwd)
 
@@ -222,22 +218,29 @@ Content here.
 """
         readme_file = tmp_path / "README.md"
         readme_file.write_text(readme_content)
-        
+
         output_file = tmp_path / "custom.md"
-        
+
         runner = CliRunner()
-        result = runner.invoke(app, [
-            "page", "generate",
-            str(readme_file),
-            "--output", str(output_file),
-            "--jekyll",
-            "--title", "Custom Title",
-            "--description", "Custom description text"
-        ])
-        
+        result = runner.invoke(
+            app,
+            [
+                "page",
+                "generate",
+                str(readme_file),
+                "--output",
+                str(output_file),
+                "--jekyll",
+                "--title",
+                "Custom Title",
+                "--description",
+                "Custom description text",
+            ],
+        )
+
         assert result.exit_code == 0
         assert output_file.exists()
-        
+
         content = output_file.read_text()
         assert "title: Custom Title" in content
         assert "description: Custom description text" in content
@@ -260,19 +263,17 @@ Visit the [documentation](https://user.github.io/project).
 """
         readme_file = tmp_path / "README.md"
         readme_file.write_text(readme_content)
-        
+
         output_file = tmp_path / "linked.html"
-        
+
         runner = CliRunner()
-        result = runner.invoke(app, [
-            "page", "generate",
-            str(readme_file),
-            "--output", str(output_file)
-        ])
-        
+        result = runner.invoke(
+            app, ["page", "generate", str(readme_file), "--output", str(output_file)]
+        )
+
         assert result.exit_code == 0
         assert output_file.exists()
-        
+
         content = output_file.read_text()
         assert "github.com/user/project" in content
         assert "source code" in content
@@ -317,19 +318,17 @@ MIT License - see [LICENSE](LICENSE) file.
 """
         readme_file = tmp_path / "README.md"
         readme_file.write_text(readme_content)
-        
+
         output_file = tmp_path / "complex.html"
-        
+
         runner = CliRunner()
-        result = runner.invoke(app, [
-            "page", "generate",
-            str(readme_file),
-            "--output", str(output_file)
-        ])
-        
+        result = runner.invoke(
+            app, ["page", "generate", str(readme_file), "--output", str(output_file)]
+        )
+
         assert result.exit_code == 0
         assert output_file.exists()
-        
+
         content = output_file.read_text()
         # Badges should be removed
         assert "img.shields.io" not in content

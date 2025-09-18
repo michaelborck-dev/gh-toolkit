@@ -1,13 +1,16 @@
 """Unit tests for RepositoryHealthChecker."""
 
 import base64
-import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from gh_toolkit.core.github_client import GitHubClient
-from gh_toolkit.core.health_checker import RepositoryHealthChecker, HealthCheck, HealthReport
+from gh_toolkit.core.health_checker import (
+    HealthCheck,
+    HealthReport,
+    RepositoryHealthChecker,
+)
 
 
 class TestRepositoryHealthChecker:
@@ -46,11 +49,13 @@ class TestRepositoryHealthChecker:
             "archived": False,
             "fork": False,
             "private": False,
-            "readme_content": base64.b64encode(b"# Test Repo\n\nA comprehensive test repository.\n\n## Installation\n\npip install test-repo\n\n## Usage\n\n```python\nimport test_repo\ntest_repo.run()\n```").decode(),
+            "readme_content": base64.b64encode(
+                b"# Test Repo\n\nA comprehensive test repository.\n\n## Installation\n\npip install test-repo\n\n## Usage\n\n```python\nimport test_repo\ntest_repo.run()\n```"
+            ).decode(),
             "readme_size": 150,
             "root_files": ["README.md", ".gitignore", "setup.py", "requirements.txt"],
             "root_dirs": ["src", "tests", "docs"],
-            "workflows": [{"name": "CI", "state": "active"}]
+            "workflows": [{"name": "CI", "state": "active"}],
         }
 
     def test_init_general_rules(self, mock_github_client):
@@ -111,7 +116,7 @@ awesome.do_something()
 
 Please read our contributing guide.
 """).decode()
-        
+
         quality = health_checker._assess_readme_quality(readme_content)
         assert quality > 0.8  # Should score highly
 
@@ -131,7 +136,7 @@ Please read our contributing guide.
         score = health_checker._assess_organization(
             sample_repo_data["root_files"],
             sample_repo_data["root_dirs"],
-            sample_repo_data
+            sample_repo_data,
         )
         assert score > 0.6  # Should score well
 
@@ -141,7 +146,7 @@ Please read our contributing guide.
         root_files = [f"file{i}.py" for i in range(20)]
         root_dirs = ["random", "stuff"]
         repo_data = {"language": "Python"}
-        
+
         score = health_checker._assess_organization(root_files, root_dirs, repo_data)
         assert score < 0.5  # Should score poorly
 
@@ -152,31 +157,31 @@ Please read our contributing guide.
 
     def test_assess_naming_conventions_poor(self, health_checker):
         """Test naming conventions with poor names."""
-        assert health_checker._assess_naming_conventions("My_Project") < 0.5  # Mixed case and underscore
-        assert health_checker._assess_naming_conventions("project!!!") < 0.7  # Special characters 
+        assert (
+            health_checker._assess_naming_conventions("My_Project") < 0.5
+        )  # Mixed case and underscore
+        assert (
+            health_checker._assess_naming_conventions("project!!!") < 0.7
+        )  # Special characters
         assert health_checker._assess_naming_conventions("a") < 0.7  # Too short
 
     def test_assess_activity_recent(self, health_checker):
         """Test activity assessment with recent activity."""
-        recent_date = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat()
+        recent_date = (datetime.now(UTC) - timedelta(days=15)).isoformat()
         repo_data = {
             "updated_at": recent_date,
             "pushed_at": recent_date,
-            "archived": False
+            "archived": False,
         }
-        
+
         score = health_checker._assess_activity(repo_data)
         assert score > 0.8  # Should score highly for recent activity
 
     def test_assess_activity_old(self, health_checker):
         """Test activity assessment with old activity."""
-        old_date = (datetime.now(timezone.utc) - timedelta(days=400)).isoformat()
-        repo_data = {
-            "updated_at": old_date,
-            "pushed_at": old_date,
-            "archived": False
-        }
-        
+        old_date = (datetime.now(UTC) - timedelta(days=400)).isoformat()
+        repo_data = {"updated_at": old_date, "pushed_at": old_date, "archived": False}
+
         score = health_checker._assess_activity(repo_data)
         assert score < 0.5  # Should score poorly for old activity
 
@@ -185,9 +190,9 @@ Please read our contributing guide.
         repo_data = {
             "updated_at": "2024-01-01T00:00:00Z",
             "pushed_at": "2024-01-01T00:00:00Z",
-            "archived": True
+            "archived": True,
         }
-        
+
         score = health_checker._assess_activity(repo_data)
         assert score < 1.0  # Should lose points for being archived
 
@@ -197,9 +202,9 @@ Please read our contributing guide.
             "size": 50000,  # Good size
             "stargazers_count": 25,  # Some stars
             "language": "Python",
-            "fork": False
+            "fork": False,
         }
-        
+
         score = health_checker._assess_code_quality(repo_data)
         assert score > 0.8  # Should score well
 
@@ -209,9 +214,9 @@ Please read our contributing guide.
             "size": 1,  # Too small
             "stargazers_count": 0,  # No stars
             "language": None,
-            "fork": True
+            "fork": True,
         }
-        
+
         score = health_checker._assess_code_quality(repo_data)
         assert score < 0.5  # Should score poorly
 
@@ -226,10 +231,10 @@ Please read our contributing guide.
     def test_check_documentation_all_good(self, health_checker, sample_repo_data):
         """Test documentation checks with all criteria met."""
         checks = health_checker._check_documentation(sample_repo_data)
-        
+
         # Should have README, description, license, and topics checks
         assert len(checks) >= 4
-        
+
         # Most checks should pass
         passed_checks = [c for c in checks if c.passed]
         assert len(passed_checks) >= 3
@@ -238,9 +243,9 @@ Please read our contributing guide.
         """Test documentation checks with missing README."""
         sample_repo_data["readme_size"] = 0
         sample_repo_data["readme_content"] = ""
-        
+
         checks = health_checker._check_documentation(sample_repo_data)
-        
+
         readme_check = next(c for c in checks if c.name == "README Existence")
         assert not readme_check.passed
         assert readme_check.fix_suggestion is not None
@@ -248,10 +253,10 @@ Please read our contributing guide.
     def test_check_structure_good(self, health_checker, sample_repo_data):
         """Test structure checks with good repository structure."""
         checks = health_checker._check_structure(sample_repo_data)
-        
+
         # Should have gitignore, organization, and naming checks
         assert len(checks) == 3
-        
+
         # Most should pass for good structure
         passed_checks = [c for c in checks if c.passed]
         assert len(passed_checks) >= 2
@@ -259,10 +264,10 @@ Please read our contributing guide.
     def test_check_quality_with_tests_and_ci(self, health_checker, sample_repo_data):
         """Test quality checks with tests and CI/CD."""
         checks = health_checker._check_quality(sample_repo_data)
-        
+
         # Should have tests, CI/CD, activity, and code quality checks
         assert len(checks) == 4
-        
+
         # Tests and CI/CD should pass
         tests_check = next(c for c in checks if c.name == "Tests")
         ci_check = next(c for c in checks if c.name == "CI/CD")
@@ -272,21 +277,25 @@ Please read our contributing guide.
     def test_check_metadata_complete(self, health_checker, sample_repo_data):
         """Test metadata checks with complete metadata."""
         checks = health_checker._check_metadata(sample_repo_data)
-        
+
         # Should have homepage, releases, and issues checks
         assert len(checks) == 3
-        
+
         # All should pass for complete metadata
         passed_checks = [c for c in checks if c.passed]
         assert len(passed_checks) == 3
 
-    def test_check_repository_health_comprehensive(self, health_checker, sample_repo_data, mocker):
+    def test_check_repository_health_comprehensive(
+        self, health_checker, sample_repo_data, mocker
+    ):
         """Test comprehensive repository health check."""
         # Mock the _fetch_repository_data method to return our sample data
-        health_checker._fetch_repository_data = mocker.Mock(return_value=sample_repo_data)
-        
+        health_checker._fetch_repository_data = mocker.Mock(
+            return_value=sample_repo_data
+        )
+
         report = health_checker.check_repository_health("user/test-repo")
-        
+
         assert isinstance(report, HealthReport)
         assert report.repository == "user/test-repo"
         assert report.total_score > 0
@@ -296,10 +305,14 @@ Please read our contributing guide.
         assert len(report.checks) > 0
         assert "by_category" in report.summary
 
-    def test_check_repository_health_with_provided_data(self, health_checker, sample_repo_data):
+    def test_check_repository_health_with_provided_data(
+        self, health_checker, sample_repo_data
+    ):
         """Test health check with provided repository data."""
-        report = health_checker.check_repository_health("user/test-repo", sample_repo_data)
-        
+        report = health_checker.check_repository_health(
+            "user/test-repo", sample_repo_data
+        )
+
         assert report.repository == "user/test-repo"
         assert report.percentage > 70  # Should score well with good sample data
         assert report.grade in ["A", "B"]
@@ -308,13 +321,24 @@ Please read our contributing guide.
         """Test summary generation."""
         # Create some mock checks
         checks = [
-            HealthCheck("Test 1", "Documentation", "Test check", True, 10, 10, "Passed"),
-            HealthCheck("Test 2", "Documentation", "Test check", False, 0, 10, "Failed", "Fix suggestion"),
+            HealthCheck(
+                "Test 1", "Documentation", "Test check", True, 10, 10, "Passed"
+            ),
+            HealthCheck(
+                "Test 2",
+                "Documentation",
+                "Test check",
+                False,
+                0,
+                10,
+                "Failed",
+                "Fix suggestion",
+            ),
             HealthCheck("Test 3", "Quality", "Test check", True, 8, 10, "Passed"),
         ]
-        
+
         summary = health_checker._generate_summary(checks, sample_repo_data)
-        
+
         assert "by_category" in summary
         assert "Documentation" in summary["by_category"]
         assert "Quality" in summary["by_category"]
@@ -325,37 +349,57 @@ Please read our contributing guide.
 
     def test_health_check_categories_coverage(self, health_checker, sample_repo_data):
         """Test that all expected categories are covered in health checks."""
-        report = health_checker.check_repository_health("user/test-repo", sample_repo_data)
-        
-        categories = set(check.category for check in report.checks)
+        report = health_checker.check_repository_health(
+            "user/test-repo", sample_repo_data
+        )
+
+        categories = {check.category for check in report.checks}
         expected_categories = {"Documentation", "Structure", "Quality", "Metadata"}
-        
+
         assert categories == expected_categories
 
     def test_academic_rules_weighting(self, mock_github_client, sample_repo_data):
         """Test that academic rules weight documentation more heavily."""
         academic_checker = RepositoryHealthChecker(mock_github_client, "academic")
         general_checker = RepositoryHealthChecker(mock_github_client, "general")
-        
-        academic_report = academic_checker.check_repository_health("user/test", sample_repo_data)
-        general_report = general_checker.check_repository_health("user/test", sample_repo_data)
-        
+
+        academic_report = academic_checker.check_repository_health(
+            "user/test", sample_repo_data
+        )
+        general_report = general_checker.check_repository_health(
+            "user/test", sample_repo_data
+        )
+
         # Academic should weight documentation more heavily
-        academic_doc_score = academic_report.summary["by_category"]["Documentation"]["max_score"]
-        general_doc_score = general_report.summary["by_category"]["Documentation"]["max_score"]
-        
+        academic_doc_score = academic_report.summary["by_category"]["Documentation"][
+            "max_score"
+        ]
+        general_doc_score = general_report.summary["by_category"]["Documentation"][
+            "max_score"
+        ]
+
         assert academic_doc_score > general_doc_score
 
     def test_professional_rules_weighting(self, mock_github_client, sample_repo_data):
         """Test that professional rules weight quality more heavily."""
-        professional_checker = RepositoryHealthChecker(mock_github_client, "professional")
+        professional_checker = RepositoryHealthChecker(
+            mock_github_client, "professional"
+        )
         general_checker = RepositoryHealthChecker(mock_github_client, "general")
-        
-        professional_report = professional_checker.check_repository_health("user/test", sample_repo_data)
-        general_report = general_checker.check_repository_health("user/test", sample_repo_data)
-        
+
+        professional_report = professional_checker.check_repository_health(
+            "user/test", sample_repo_data
+        )
+        general_report = general_checker.check_repository_health(
+            "user/test", sample_repo_data
+        )
+
         # Professional should weight quality more heavily
-        professional_quality_score = professional_report.summary["by_category"]["Quality"]["max_score"]
-        general_quality_score = general_report.summary["by_category"]["Quality"]["max_score"]
-        
+        professional_quality_score = professional_report.summary["by_category"][
+            "Quality"
+        ]["max_score"]
+        general_quality_score = general_report.summary["by_category"]["Quality"][
+            "max_score"
+        ]
+
         assert professional_quality_score > general_quality_score

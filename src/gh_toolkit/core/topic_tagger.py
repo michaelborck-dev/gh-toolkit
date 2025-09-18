@@ -13,7 +13,9 @@ console = Console()
 class TopicTagger:
     """Automatically add relevant topic tags to GitHub repositories using LLM analysis."""
 
-    def __init__(self, github_client: GitHubClient, anthropic_api_key: str | None = None):
+    def __init__(
+        self, github_client: GitHubClient, anthropic_api_key: str | None = None
+    ):
         """Initialize with GitHub client and optional Anthropic API key."""
         self.client = github_client
         self.anthropic_api_key = anthropic_api_key
@@ -21,9 +23,12 @@ class TopicTagger:
         if anthropic_api_key:
             try:
                 from anthropic import Anthropic
+
                 self._anthropic_client = Anthropic(api_key=anthropic_api_key)
             except ImportError:
-                console.print("[yellow]⚠ Anthropic package not available. Install with: pip install anthropic[/yellow]")
+                console.print(
+                    "[yellow]⚠ Anthropic package not available. Install with: pip install anthropic[/yellow]"
+                )
                 self._anthropic_client = None
         else:
             self._anthropic_client = None
@@ -36,24 +41,28 @@ class TopicTagger:
         except (GitHubAPIError, KeyError, Exception):
             return ""
 
-    def generate_topics_with_llm(self, repo_data: dict[str, Any], readme: str) -> list[str]:
+    def generate_topics_with_llm(
+        self, repo_data: dict[str, Any], readme: str
+    ) -> list[str]:
         """Use Claude to generate relevant topic tags."""
         if not self._anthropic_client:
-            console.print("[yellow]⚠ No Anthropic API key provided, falling back to rule-based topics[/yellow]")
+            console.print(
+                "[yellow]⚠ No Anthropic API key provided, falling back to rule-based topics[/yellow]"
+            )
             return self._generate_fallback_topics(repo_data)
 
         # Prepare context for LLM
-        languages = repo_data.get('languages', {})
+        languages = repo_data.get("languages", {})
         context = f"""
-Repository: {repo_data.get('name', '')}
-Description: {repo_data.get('description', 'No description')}
-Main Language: {repo_data.get('language', 'Unknown')}
-All Languages: {', '.join(languages.keys()) if languages else 'Unknown'}
-Stars: {repo_data.get('stargazers_count', 0)}
-Forks: {repo_data.get('forks_count', 0)}
+Repository: {repo_data.get("name", "")}
+Description: {repo_data.get("description", "No description")}
+Main Language: {repo_data.get("language", "Unknown")}
+All Languages: {", ".join(languages.keys()) if languages else "Unknown"}
+Stars: {repo_data.get("stargazers_count", 0)}
+Forks: {repo_data.get("forks_count", 0)}
 
 README excerpt:
-{readme[:2000] if readme else 'No README available'}
+{readme[:2000] if readme else "No README available"}
 """
 
         prompt = f"""Based on the following GitHub repository information, suggest 5-10 relevant topic tags that would help users discover this repository. Topics should be lowercase, use hyphens instead of spaces, and be commonly used GitHub topics.
@@ -74,28 +83,34 @@ Topics:"""
                 model="claude-3-haiku-20240307",
                 max_tokens=200,
                 temperature=0.7,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
+                messages=[{"role": "user", "content": prompt}],
             )
 
             # Parse topics from response
             response_content = response.content[0]
-            topics_text = getattr(response_content, 'text', '').strip() if hasattr(response_content, 'text') else ''
-            topics = [t.strip().lower() for t in topics_text.split(',') if t.strip()]
+            topics_text = (
+                getattr(response_content, "text", "").strip()
+                if hasattr(response_content, "text")
+                else ""
+            )
+            topics = [t.strip().lower() for t in topics_text.split(",") if t.strip()]
 
             # Filter and validate topics
             valid_topics: list[str] = []
             for topic in topics:
                 # Basic validation
-                if (topic and
-                    len(topic) <= 50 and
-                    topic.replace('-', '').replace('_', '').isalnum() and
-                    not topic.startswith('-') and
-                    not topic.endswith('-')):
+                if (
+                    topic
+                    and len(topic) <= 50
+                    and topic.replace("-", "").replace("_", "").isalnum()
+                    and not topic.startswith("-")
+                    and not topic.endswith("-")
+                ):
                     valid_topics.append(topic)
 
-            return valid_topics[:10]  # GitHub allows max 20 topics, but 10 is reasonable
+            return valid_topics[
+                :10
+            ]  # GitHub allows max 20 topics, but 10 is reasonable
 
         except Exception as e:
             console.print(f"[yellow]⚠ Error generating topics with LLM: {e}[/yellow]")
@@ -106,44 +121,44 @@ Topics:"""
         topics: list[str] = []
 
         # Add main language
-        if repo_data.get('language'):
-            lang = repo_data['language'].lower()
+        if repo_data.get("language"):
+            lang = repo_data["language"].lower()
             lang_map = {
-                'javascript': 'javascript',
-                'python': 'python',
-                'java': 'java',
-                'typescript': 'typescript',
-                'c++': 'cpp',
-                'c#': 'csharp',
-                'go': 'golang',
-                'rust': 'rust',
-                'php': 'php',
-                'ruby': 'ruby',
-                'swift': 'swift',
-                'kotlin': 'kotlin',
-                'dart': 'dart',
-                'scala': 'scala',
-                'r': 'r-lang',
-                'matlab': 'matlab',
-                'shell': 'shell-script',
-                'powershell': 'powershell',
-                'html': 'html',
-                'css': 'css'
+                "javascript": "javascript",
+                "python": "python",
+                "java": "java",
+                "typescript": "typescript",
+                "c++": "cpp",
+                "c#": "csharp",
+                "go": "golang",
+                "rust": "rust",
+                "php": "php",
+                "ruby": "ruby",
+                "swift": "swift",
+                "kotlin": "kotlin",
+                "dart": "dart",
+                "scala": "scala",
+                "r": "r-lang",
+                "matlab": "matlab",
+                "shell": "shell-script",
+                "powershell": "powershell",
+                "html": "html",
+                "css": "css",
             }
             if lang in lang_map:
                 topics.append(lang_map[lang])
 
         # Add additional languages
-        for lang in repo_data.get('languages', {}).keys():
+        for lang in repo_data.get("languages", {}).keys():
             lang_lower = lang.lower()
-            if lang_lower == 'jupyter notebook':
-                topics.append('jupyter-notebook')
-            elif lang_lower == 'dockerfile':
-                topics.append('docker')
+            if lang_lower == "jupyter notebook":
+                topics.append("jupyter-notebook")
+            elif lang_lower == "dockerfile":
+                topics.append("docker")
 
         # Infer project type from description and name
-        description = (repo_data.get('description') or '').lower()
-        name = repo_data.get('name', '').lower()
+        description = (repo_data.get("description") or "").lower()
+        name = repo_data.get("name", "").lower()
         combined_text = f"{description} {name}"
 
         # Map GitHub API field names to our expected format
@@ -153,22 +168,28 @@ Topics:"""
 
         # Common patterns
         patterns = {
-            'cli': ['cli', 'command-line', 'terminal'],
-            'web': ['web', 'website', 'webapp', 'web-app'],
-            'api': ['api', 'rest', 'graphql'],
-            'library': ['library', 'lib', 'package'],
-            'framework': ['framework'],
-            'tool': ['tool', 'utility', 'utils'],
-            'bot': ['bot', 'discord', 'telegram'],
-            'game': ['game', 'gaming'],
-            'mobile': ['mobile', 'android', 'ios'],
-            'desktop': ['desktop', 'gui'],
-            'machine-learning': ['ml', 'machine-learning', 'ai', 'neural', 'deep-learning'],
-            'data-science': ['data', 'analysis', 'visualization', 'pandas', 'numpy'],
-            'blockchain': ['blockchain', 'crypto', 'bitcoin', 'ethereum'],
-            'devops': ['docker', 'kubernetes', 'ci', 'cd', 'deployment'],
-            'education': ['tutorial', 'learning', 'course', 'education'],
-            'documentation': ['docs', 'documentation', 'readme']
+            "cli": ["cli", "command-line", "terminal"],
+            "web": ["web", "website", "webapp", "web-app"],
+            "api": ["api", "rest", "graphql"],
+            "library": ["library", "lib", "package"],
+            "framework": ["framework"],
+            "tool": ["tool", "utility", "utils"],
+            "bot": ["bot", "discord", "telegram"],
+            "game": ["game", "gaming"],
+            "mobile": ["mobile", "android", "ios"],
+            "desktop": ["desktop", "gui"],
+            "machine-learning": [
+                "ml",
+                "machine-learning",
+                "ai",
+                "neural",
+                "deep-learning",
+            ],
+            "data-science": ["data", "analysis", "visualization", "pandas", "numpy"],
+            "blockchain": ["blockchain", "crypto", "bitcoin", "ethereum"],
+            "devops": ["docker", "kubernetes", "ci", "cd", "deployment"],
+            "education": ["tutorial", "learning", "course", "education"],
+            "documentation": ["docs", "documentation", "readme"],
         }
 
         for topic, keywords in patterns.items():
@@ -189,21 +210,20 @@ Topics:"""
     def update_repo_topics(self, owner: str, repo: str, topics: list[str]) -> bool:
         """Update repository topics on GitHub."""
         # GitHub topics must be lowercase and can contain hyphens
-        cleaned_topics = [t.lower().replace(' ', '-') for t in topics]
+        cleaned_topics = [t.lower().replace(" ", "-") for t in topics]
 
         try:
             # Need to use PUT request with special headers for topics
             import requests
+
             url = f"https://api.github.com/repos/{owner}/{repo}/topics"
             headers = {
-                'Authorization': f'token {self.client.token}',
-                'Accept': 'application/vnd.github.mercy-preview+json'  # Required for topics API
+                "Authorization": f"token {self.client.token}",
+                "Accept": "application/vnd.github.mercy-preview+json",  # Required for topics API
             }
 
             response = requests.put(
-                url,
-                headers=headers,
-                json={'names': cleaned_topics}
+                url, headers=headers, json={"names": cleaned_topics}
             )
             response.raise_for_status()
             return True
@@ -211,7 +231,9 @@ Topics:"""
             console.print(f"[red]Error updating topics for {owner}/{repo}: {e}[/red]")
             return False
 
-    def process_repository(self, owner: str, repo: str, dry_run: bool = False, force: bool = False) -> dict[str, Any]:
+    def process_repository(
+        self, owner: str, repo: str, dry_run: bool = False, force: bool = False
+    ) -> dict[str, Any]:
         """Process a single repository for topic tagging."""
         repo_string = f"{owner}/{repo}"
 
@@ -221,7 +243,7 @@ Topics:"""
 
             # Get additional repo metadata
             languages = self.client.get_repo_languages(owner, repo)
-            repo_data['languages'] = languages
+            repo_data["languages"] = languages
 
             # Get current topics
             current_topics = self.get_repo_topics(owner, repo)
@@ -229,10 +251,10 @@ Topics:"""
             # Check if topics already exist and we're not forcing
             if current_topics and not force:
                 return {
-                    'repo': repo_string,
-                    'status': 'skipped',
-                    'message': f'Repository already has {len(current_topics)} topics',
-                    'current_topics': current_topics
+                    "repo": repo_string,
+                    "status": "skipped",
+                    "message": f"Repository already has {len(current_topics)} topics",
+                    "current_topics": current_topics,
                 }
 
             # Get additional context
@@ -243,9 +265,9 @@ Topics:"""
 
             if not suggested_topics:
                 return {
-                    'repo': repo_string,
-                    'status': 'error',
-                    'message': 'Failed to generate topics'
+                    "repo": repo_string,
+                    "status": "error",
+                    "message": "Failed to generate topics",
                 }
 
             # Merge with existing topics if forcing an update
@@ -257,71 +279,87 @@ Topics:"""
                 final_topics = suggested_topics
 
             result = {
-                'repo': repo_string,
-                'current_topics': current_topics,
-                'suggested_topics': suggested_topics,
-                'final_topics': final_topics
+                "repo": repo_string,
+                "current_topics": current_topics,
+                "suggested_topics": suggested_topics,
+                "final_topics": final_topics,
             }
 
             # Update topics if not in dry run mode
             if not dry_run:
                 if self.update_repo_topics(owner, repo, final_topics):
-                    result.update({
-                        'status': 'success',
-                        'message': f'Successfully updated with {len(final_topics)} topics'
-                    })
+                    result.update(
+                        {
+                            "status": "success",
+                            "message": f"Successfully updated with {len(final_topics)} topics",
+                        }
+                    )
                 else:
-                    result.update({
-                        'status': 'error',
-                        'message': 'Failed to update topics'
-                    })
+                    result.update(
+                        {"status": "error", "message": "Failed to update topics"}
+                    )
             else:
-                result.update({
-                    'status': 'dry_run',
-                    'message': f'Would update with {len(final_topics)} topics'
-                })
+                result.update(
+                    {
+                        "status": "dry_run",
+                        "message": f"Would update with {len(final_topics)} topics",
+                    }
+                )
 
             return result
 
         except GitHubAPIError as e:
             return {
-                'repo': repo_string,
-                'status': 'error',
-                'message': f'GitHub API error: {e.message}'
+                "repo": repo_string,
+                "status": "error",
+                "message": f"GitHub API error: {e.message}",
             }
         except Exception as e:
             return {
-                'repo': repo_string,
-                'status': 'error',
-                'message': f'Unexpected error: {str(e)}'
+                "repo": repo_string,
+                "status": "error",
+                "message": f"Unexpected error: {str(e)}",
             }
 
-    def process_multiple_repositories(self, repo_list: list[tuple[str, str]], dry_run: bool = False, force: bool = False) -> list[dict[str, Any]]:
+    def process_multiple_repositories(
+        self,
+        repo_list: list[tuple[str, str]],
+        dry_run: bool = False,
+        force: bool = False,
+    ) -> list[dict[str, Any]]:
         """Process multiple repositories with rate limiting."""
         results: list[dict[str, Any]] = []
 
         for i, (owner, repo) in enumerate(repo_list, 1):
-            console.print(f"\n[blue]Processing {i}/{len(repo_list)}: {owner}/{repo}[/blue]")
+            console.print(
+                f"\n[blue]Processing {i}/{len(repo_list)}: {owner}/{repo}[/blue]"
+            )
 
             result = self.process_repository(owner, repo, dry_run, force)
             results.append(result)
 
             # Show result
-            status = result['status']
-            message = result.get('message', '')
+            status = result["status"]
+            message = result.get("message", "")
 
-            if status == 'success':
+            if status == "success":
                 console.print(f"[green]✓ {message}[/green]")
-                if result.get('final_topics'):
-                    console.print(f"[dim]Topics: {', '.join(result['final_topics'])}[/dim]")
-            elif status == 'skipped':
+                if result.get("final_topics"):
+                    console.print(
+                        f"[dim]Topics: {', '.join(result['final_topics'])}[/dim]"
+                    )
+            elif status == "skipped":
                 console.print(f"[yellow]⏭ {message}[/yellow]")
-                if result.get('current_topics'):
-                    console.print(f"[dim]Current: {', '.join(result['current_topics'])}[/dim]")
-            elif status == 'dry_run':
+                if result.get("current_topics"):
+                    console.print(
+                        f"[dim]Current: {', '.join(result['current_topics'])}[/dim]"
+                    )
+            elif status == "dry_run":
                 console.print(f"[cyan]🔍 {message}[/cyan]")
-                if result.get('final_topics'):
-                    console.print(f"[dim]Would add: {', '.join(result['final_topics'])}[/dim]")
+                if result.get("final_topics"):
+                    console.print(
+                        f"[dim]Would add: {', '.join(result['final_topics'])}[/dim]"
+                    )
             else:  # error
                 console.print(f"[red]✗ {message}[/red]")
 

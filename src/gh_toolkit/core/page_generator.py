@@ -2,15 +2,16 @@
 
 import html
 import re
+from typing import Any
+
 import yaml
-from typing import Any, Dict, List, Optional
 
 try:
     import mistune
-except ImportError:
+except ImportError as e:
     raise ImportError(
         "The 'mistune' library is required. Please install it: pip install mistune"
-    )
+    ) from e
 
 
 HTML_TEMPLATE = """
@@ -101,11 +102,11 @@ class PageGenerator:
     def __init__(self, markdown_text: str):
         """Initialize the page generator with markdown content."""
         self.markdown_text = markdown_text
-        self.sections: List[Dict[str, Any]] = []
+        self.sections: list[dict[str, Any]] = []
         self.title = "Project Landing Page"
         self.description = ""
-        self.links: Dict[str, Dict[str, str]] = {}
-        
+        self.links: dict[str, dict[str, str]] = {}
+
         renderer = BadgeRemoverRenderer()
         self.md_parser = mistune.create_markdown(
             renderer=renderer, plugins=["task_lists", "strikethrough"]
@@ -116,9 +117,7 @@ class PageGenerator:
     ) -> None:
         """Extract links with labels from markdown text."""
         full_pattern = re.compile(
-            r"\[(?:!\[([\w\s.'-]+)\]\(.*?\)|([\w\s.'-]+))\]\s*\(\s*({url_pattern})\s*\)".format(
-                url_pattern=url_pattern
-            ),
+            rf"\[(?:!\[([\w\s.'-]+)\]\(.*?\)|([\w\s.'-]+))\]\s*\(\s*({url_pattern})\s*\)",
             re.IGNORECASE,
         )
         match = full_pattern.search(self.markdown_text)
@@ -183,7 +182,26 @@ class PageGenerator:
                 continue
             if found_title and line and not line.startswith("#"):
                 # Skip badge lines, lists, and other markdown elements
-                if not any(x in line for x in ["![", "[![", "**", "##", "- ", "* ", "1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ", "8. ", "9. "]):
+                if not any(
+                    x in line
+                    for x in [
+                        "![",
+                        "[![",
+                        "**",
+                        "##",
+                        "- ",
+                        "* ",
+                        "1. ",
+                        "2. ",
+                        "3. ",
+                        "4. ",
+                        "5. ",
+                        "6. ",
+                        "7. ",
+                        "8. ",
+                        "9. ",
+                    ]
+                ):
                     self.description = line
                     break
 
@@ -191,7 +209,7 @@ class PageGenerator:
         """Parse the markdown content into sections."""
         self._extract_links()
         self._extract_title_and_description()
-        
+
         parts = re.split(r"(^##\s.*)", self.markdown_text, flags=re.MULTILINE)
 
         hero_content = parts[0]
@@ -199,20 +217,24 @@ class PageGenerator:
         if h1_match:
             hero_content = hero_content.replace(h1_match.group(0), "", 1)
 
-        self.sections.append({
-            "type": "hero",
-            "title": self.title,
-            "content": self.md_parser(hero_content.strip()),
-        })
+        self.sections.append(
+            {
+                "type": "hero",
+                "title": self.title,
+                "content": self.md_parser(hero_content.strip()),
+            }
+        )
 
         for i in range(1, len(parts), 2):
             if i + 1 < len(parts):
                 title = parts[i].strip().replace("## ", "")
                 content = parts[i + 1].strip()
-                self.sections.append({
-                    "title": title,
-                    "content_html": self.md_parser(content),
-                })
+                self.sections.append(
+                    {
+                        "title": title,
+                        "content_html": self.md_parser(content),
+                    }
+                )
 
     def render_html(self) -> str:
         """Render as a complete HTML page."""
@@ -220,9 +242,9 @@ class PageGenerator:
         main_content_sections = [s for s in self.sections if "type" not in s]
 
         hero_html = self._render_hero(hero_section, self.links)
-        main_content_html = "\n".join([
-            self._render_section(s, i) for i, s in enumerate(main_content_sections)
-        ])
+        main_content_html = "\n".join(
+            [self._render_section(s, i) for i, s in enumerate(main_content_sections)]
+        )
         header_html = self._render_header(main_content_sections)
         ack_section = next(
             (s for s in main_content_sections if "license" in s["title"].lower()),
@@ -244,33 +266,31 @@ class PageGenerator:
         """Render as Jekyll markdown with front matter."""
         # Generate the HTML first to get the body content
         html_content = self.render_html()
-        
+
         # Extract content between body tags
-        body_match = re.search(
-            r"<body[^>]*>(.*?)</body>", html_content, re.DOTALL
-        )
+        body_match = re.search(r"<body[^>]*>(.*?)</body>", html_content, re.DOTALL)
         if not body_match:
             raise ValueError("Could not extract body content from HTML")
-        
+
         body_content = body_match.group(1).strip()
-        
+
         # Create Jekyll front matter
         front_matter = {
             "layout": "default",
             "title": self.title,
         }
-        
+
         if self.description:
             front_matter["description"] = self.description
-            
+
         # Generate YAML front matter
         yaml_front_matter = yaml.dump(
             front_matter, default_flow_style=False, allow_unicode=True
         ).strip()
-        
+
         return f"---\n{yaml_front_matter}\n---\n\n{body_content}"
 
-    def _render_section(self, section: Dict[str, Any], index: int) -> str:
+    def _render_section(self, section: dict[str, Any], index: int) -> str:
         """Render a content section."""
         section_id = self._slugify(section["title"])
         bg_class = (
@@ -293,7 +313,7 @@ class PageGenerator:
                     title_match.group(1) if title_match else clean_item.split(":")[0]
                 )
                 card_content = (
-                    clean_item.replace(card_title, "", 1).lstrip(": ").lstrip("** ")
+                    clean_item.replace(card_title, "", 1).removeprefix(": ").removeprefix("** ")
                 )
                 items_html += f"""
                 <div class="p-6 bg-stone-100 dark:bg-stone-950 rounded-lg border border-stone-200 dark:border-stone-700">
@@ -312,11 +332,13 @@ class PageGenerator:
             </div>
         </section>"""
 
-    def _render_hero(self, hero: Optional[Dict[str, Any]], links: Dict[str, Dict[str, str]]) -> str:
+    def _render_hero(
+        self, hero: dict[str, Any] | None, links: dict[str, dict[str, str]]
+    ) -> str:
         """Render the hero section."""
         if not hero:
             return ""
-        
+
         title, content_html = hero.get("title", "Welcome"), hero.get("content", "")
 
         buttons: list[str] = []
@@ -360,9 +382,13 @@ class PageGenerator:
 
     def _slugify(self, text: str) -> str:
         """Convert text to URL-friendly slug."""
-        return re.sub(r"[\s/]+", "-", text.lower().strip()).replace("{", "").replace("}", "")
+        return (
+            re.sub(r"[\s/]+", "-", text.lower().strip())
+            .replace("{", "")
+            .replace("}", "")
+        )
 
-    def _render_header(self, sections: List[Dict[str, Any]]) -> str:
+    def _render_header(self, sections: list[dict[str, Any]]) -> str:
         """Render the navigation header."""
         nav_links = [s["title"] for s in sections]
         desktop_links = "".join(
@@ -381,12 +407,12 @@ class PageGenerator:
         )
         return f"""<header id="top" class="bg-white/90 dark:bg-stone-900/80 backdrop-blur-lg sticky top-0 z-50 shadow-sm"><div class="container mx-auto px-4 sm:px-6 lg:px-8"><nav class="flex items-center justify-between h-16"><div class="flex-shrink-0"><a href="#top" class="text-2xl font-bold text-stone-900 dark:text-white tracking-tight">{html.escape(self.title)}</a></div><div class="hidden md:flex items-center space-x-2">{desktop_links}</div><div class="hidden md:flex items-center gap-4">{github_button}<button class="theme-toggle-btn p-2 rounded-md text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700">🌙</button></div><div class="-mr-2 flex md:hidden"><button class="theme-toggle-btn p-2 rounded-md text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700">🌙</button><button type="button" id="mobile-menu-button" class="bg-stone-100 dark:bg-stone-800 inline-flex items-center justify-center p-2 rounded-md text-stone-600 dark:text-stone-400 hover:text-stone-800 hover:bg-stone-200 focus:outline-none"><svg class="h-6 w-6 block" id="menu-open-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg><svg class="h-6 w-6 hidden" id="menu-close-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button></div></nav></div><div class="md:hidden hidden" id="mobile-menu"><div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">{mobile_links}</div></div></header>"""
 
-    def _render_footer(self, ack_section: Optional[Dict[str, Any]]) -> str:
+    def _render_footer(self, ack_section: dict[str, Any] | None) -> str:
         """Render the footer section."""
         content = ""
         if ack_section:
             content = ack_section["content_html"]
-        return f"""<footer id="acknowledgements" class="bg-stone-800 text-stone-300 dark:bg-black"><div class="container mx-auto py-12 px-4 sm:px-6 lg:px-8 text-center">{f'<h3 class="text-xl font-bold text-white">{html.escape(ack_section["title"])}</h3>' if ack_section else ''}<div class="mt-4 prose-styles max-w-2xl mx-auto">{content}</div><div class="mt-8"><p>&copy; 2025 {html.escape(self.title)}. All Rights Reserved.</p><p class="text-sm text-stone-400">Generated from README.md.</p></div></div></footer>"""
+        return f"""<footer id="acknowledgements" class="bg-stone-800 text-stone-300 dark:bg-black"><div class="container mx-auto py-12 px-4 sm:px-6 lg:px-8 text-center">{f'<h3 class="text-xl font-bold text-white">{html.escape(ack_section["title"])}</h3>' if ack_section else ""}<div class="mt-4 prose-styles max-w-2xl mx-auto">{content}</div><div class="mt-8"><p>&copy; 2025 {html.escape(self.title)}. All Rights Reserved.</p><p class="text-sm text-stone-400">Generated from README.md.</p></div></div></footer>"""
 
     def _get_javascript(self) -> str:
         """Get JavaScript for interactive features."""
@@ -394,16 +420,16 @@ class PageGenerator:
         // Dark mode toggle
         const themeToggleButtons = document.querySelectorAll('.theme-toggle-btn');
         const html = document.documentElement;
-        
+
         // Check for saved theme preference or default to system
         const savedTheme = localStorage.getItem('theme');
         const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         const currentTheme = savedTheme || systemTheme;
-        
+
         if (currentTheme === 'dark') {
             html.classList.add('dark');
         }
-        
+
         themeToggleButtons.forEach(button => {
             button.addEventListener('click', () => {
                 html.classList.toggle('dark');
@@ -411,13 +437,13 @@ class PageGenerator:
                 localStorage.setItem('theme', isDark ? 'dark' : 'light');
             });
         });
-        
+
         // Mobile menu toggle
         const mobileMenuButton = document.getElementById('mobile-menu-button');
         const mobileMenu = document.getElementById('mobile-menu');
         const menuOpenIcon = document.getElementById('menu-open-icon');
         const menuCloseIcon = document.getElementById('menu-close-icon');
-        
+
         if (mobileMenuButton) {
             mobileMenuButton.addEventListener('click', () => {
                 const isOpen = !mobileMenu.classList.contains('hidden');
@@ -426,7 +452,7 @@ class PageGenerator:
                 menuCloseIcon.classList.toggle('hidden');
             });
         }
-        
+
         // Smooth scrolling for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
@@ -440,7 +466,7 @@ class PageGenerator:
                 }
             });
         });
-        
+
         // Copy button functionality for code blocks
         document.querySelectorAll('pre').forEach(pre => {
             const code = pre.querySelector('code');

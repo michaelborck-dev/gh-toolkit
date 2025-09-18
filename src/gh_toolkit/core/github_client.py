@@ -8,7 +8,6 @@ import requests
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-
 console = Console()
 
 
@@ -26,7 +25,7 @@ class GitHubClient:
 
     def __init__(self, token: str | None = None):
         """Initialize GitHub client.
-        
+
         Args:
             token: GitHub personal access token. If None, will try to get from
                    GITHUB_TOKEN environment variable.
@@ -50,20 +49,20 @@ class GitHubClient:
         endpoint: str,
         params: dict[str, Any] | None = None,
         json_data: dict[str, Any] | None = None,
-        timeout: int = 30
+        timeout: int = 30,
     ) -> requests.Response:
         """Make a request to GitHub API with error handling.
-        
+
         Args:
             method: HTTP method (GET, POST, PUT, DELETE, etc.)
             endpoint: API endpoint (e.g., "/user/repos")
             params: Query parameters
             json_data: JSON data for POST/PUT requests
             timeout: Request timeout in seconds
-            
+
         Returns:
             Response object
-            
+
         Raises:
             GitHubAPIError: If the request fails
         """
@@ -71,11 +70,7 @@ class GitHubClient:
 
         try:
             response = self.session.request(
-                method=method,
-                url=url,
-                params=params,
-                json=json_data,
-                timeout=timeout
+                method=method, url=url, params=params, json=json_data, timeout=timeout
             )
 
             # Check rate limiting
@@ -90,7 +85,9 @@ class GitHubClient:
                     )
                     time.sleep(wait_time + 1)
                     # Retry the request
-                    return self._make_request(method, endpoint, params, json_data, timeout)
+                    return self._make_request(
+                        method, endpoint, params, json_data, timeout
+                    )
 
             # Check for other errors
             if not response.ok:
@@ -99,7 +96,7 @@ class GitHubClient:
                     error_data = response.json()
                     if "message" in error_data:
                         error_msg += f" - {error_data['message']}"
-                except:
+                except Exception:
                     error_msg += f" - {response.text[:200]}"
 
                 raise GitHubAPIError(error_msg, response.status_code)
@@ -107,23 +104,23 @@ class GitHubClient:
             return response
 
         except requests.exceptions.RequestException as e:
-            raise GitHubAPIError(f"Request failed: {str(e)}")
+            raise GitHubAPIError(f"Request failed: {str(e)}") from e
 
     def get_paginated(
         self,
         endpoint: str,
         params: dict[str, Any] | None = None,
         per_page: int = 100,
-        max_pages: int | None = None
+        max_pages: int | None = None,
     ) -> list[dict[str, Any]]:
         """Get all pages from a paginated GitHub API endpoint.
-        
+
         Args:
             endpoint: API endpoint
             params: Query parameters
             per_page: Items per page (max 100)
             max_pages: Maximum pages to fetch (None for all)
-            
+
         Returns:
             List of all items from all pages
         """
@@ -136,7 +133,7 @@ class GitHubClient:
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             console=console,
-            transient=True
+            transient=True,
         ) as progress:
             task = progress.add_task("Fetching data...", total=None)
 
@@ -166,16 +163,16 @@ class GitHubClient:
         username: str | None = None,
         repo_type: str = "all",
         visibility: str = "all",
-        affiliation: str = "owner,collaborator,organization_member"
+        affiliation: str = "owner,collaborator,organization_member",
     ) -> list[dict[str, Any]]:
         """Get repositories for a user.
-        
+
         Args:
             username: GitHub username (None for authenticated user)
             repo_type: Repository type (all, owner, public, private, member)
             visibility: Repository visibility (all, public, private)
             affiliation: Affiliation (owner, collaborator, organization_member)
-            
+
         Returns:
             List of repository data
         """
@@ -189,7 +186,10 @@ class GitHubClient:
             params = {}
 
             # Only add type if visibility/affiliation are default
-            if visibility == "all" and affiliation == "owner,collaborator,organization_member":
+            if (
+                visibility == "all"
+                and affiliation == "owner,collaborator,organization_member"
+            ):
                 params["type"] = repo_type
             else:
                 # Use visibility and affiliation (cannot combine with type)
@@ -198,13 +198,15 @@ class GitHubClient:
 
         return self.get_paginated(endpoint, params)
 
-    def get_org_repos(self, org_name: str, repo_type: str = "all") -> list[dict[str, Any]]:
+    def get_org_repos(
+        self, org_name: str, repo_type: str = "all"
+    ) -> list[dict[str, Any]]:
         """Get repositories for an organization.
-        
+
         Args:
             org_name: Organization name
             repo_type: Repository type (all, public, private, forks, sources, member)
-            
+
         Returns:
             List of repository data
         """
@@ -214,10 +216,10 @@ class GitHubClient:
 
     def get_user_info(self, username: str | None = None) -> dict[str, Any]:
         """Get user information.
-        
+
         Args:
             username: GitHub username (None for authenticated user)
-            
+
         Returns:
             User information
         """
@@ -231,11 +233,11 @@ class GitHubClient:
 
     def get_repo_info(self, owner: str, repo: str) -> dict[str, Any]:
         """Get repository information.
-        
+
         Args:
             owner: Repository owner
             repo: Repository name
-            
+
         Returns:
             Repository information
         """
@@ -247,7 +249,7 @@ class GitHubClient:
 
     def get_repository_invitations(self) -> list[dict[str, Any]]:
         """Get pending repository invitations for the authenticated user.
-        
+
         Returns:
             List of repository invitation data
         """
@@ -268,10 +270,14 @@ class GitHubClient:
         try:
             response = self._make_request("PATCH", endpoint)
             if response.status_code != 204:
-                console.print(f"[yellow]Warning: Expected status 204 but got {response.status_code} for repo invitation {invitation_id}[/yellow]")
+                console.print(
+                    f"[yellow]Warning: Expected status 204 but got {response.status_code} for repo invitation {invitation_id}[/yellow]"
+                )
             return response.status_code == 204
         except GitHubAPIError as e:
-            console.print(f"[yellow]API error while accepting repo invitation {invitation_id}: {e.message}[/yellow]")
+            console.print(
+                f"[yellow]API error while accepting repo invitation {invitation_id}: {e.message}[/yellow]"
+            )
             return False
 
     def get_organization_invitations(self) -> list[dict[str, Any]]:
@@ -308,19 +314,22 @@ class GitHubClient:
 
     def leave_repository(self, owner: str, repo: str, username: str) -> bool:
         """Leave a repository (remove user as collaborator).
-        
+
         Args:
             owner: Repository owner
             repo: Repository name
             username: Username to remove (usually authenticated user)
-            
+
         Returns:
             True if successful, False otherwise
         """
         endpoint = f"/repos/{owner}/{repo}/collaborators/{username}"
         try:
             response = self._make_request("DELETE", endpoint)
-            return response.status_code in [204, 404]  # 404 means already not a collaborator
+            return response.status_code in [
+                204,
+                404,
+            ]  # 404 means already not a collaborator
         except GitHubAPIError:
             return False
 
@@ -328,11 +337,11 @@ class GitHubClient:
 
     def get_repo_readme(self, owner: str, repo: str) -> str:
         """Get README content from repository.
-        
+
         Args:
             owner: Repository owner
             repo: Repository name
-            
+
         Returns:
             README content as string
         """
@@ -343,18 +352,19 @@ class GitHubClient:
 
             # Decode base64 content
             import base64
-            readme_text = base64.b64decode(content_data['content']).decode('utf-8')
+
+            readme_text = base64.b64decode(content_data["content"]).decode("utf-8")
             return readme_text[:5000]  # Limit to 5000 chars to avoid token limits
-        except:
+        except Exception:
             return ""
 
     def get_repo_releases(self, owner: str, repo: str) -> list[dict[str, Any]]:
         """Get releases for a repository.
-        
+
         Args:
             owner: Repository owner
             repo: Repository name
-            
+
         Returns:
             List of release data
         """
@@ -362,33 +372,33 @@ class GitHubClient:
         try:
             response = self._make_request("GET", endpoint)
             return response.json()
-        except:
+        except Exception:
             return []
 
     def get_repo_topics(self, owner: str, repo: str) -> list[str]:
         """Get topics for a repository.
-        
+
         Args:
             owner: Repository owner
             repo: Repository name
-            
+
         Returns:
             List of topic strings
         """
         endpoint = f"/repos/{owner}/{repo}/topics"
         try:
             response = self._make_request("GET", endpoint)
-            return response.json().get('names', [])
-        except:
+            return response.json().get("names", [])
+        except Exception:
             return []
 
     def get_repo_languages(self, owner: str, repo: str) -> dict[str, int]:
         """Get programming languages used in repository.
-        
+
         Args:
             owner: Repository owner
             repo: Repository name
-            
+
         Returns:
             Dictionary of language names to byte counts
         """
@@ -396,7 +406,7 @@ class GitHubClient:
         try:
             response = self._make_request("GET", endpoint)
             return response.json()
-        except:
+        except Exception:
             return {}
 
     def get_repo_pages_info(self, owner: str, repo: str) -> dict[str, Any] | None:
@@ -413,17 +423,13 @@ class GitHubClient:
         try:
             response = self._make_request("GET", endpoint)
             return response.json()
-        except:
+        except Exception:
             return None
 
     # Repository transfer methods
 
     def transfer_repository(
-        self,
-        owner: str,
-        repo: str,
-        new_owner: str,
-        new_name: str | None = None
+        self, owner: str, repo: str, new_owner: str, new_name: str | None = None
     ) -> dict[str, Any]:
         """Transfer repository ownership to another user or organization.
 

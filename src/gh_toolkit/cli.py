@@ -1,11 +1,26 @@
 """Main CLI entry point for gh-toolkit."""
 
-
+# Import commands
 import typer
 from rich.console import Console
 from rich.table import Table
 
 from gh_toolkit import __version__
+from gh_toolkit.commands.invite import accept_invitations, leave_repositories
+from gh_toolkit.commands.page import generate_page
+from gh_toolkit.commands.repo import (
+    clone_repos,
+    extract_repos,
+    health_check,
+    list_repos,
+)
+from gh_toolkit.commands.site import generate_site
+from gh_toolkit.commands.tag import tag_repos
+from gh_toolkit.commands.transfer import (
+    accept_transfers,
+    initiate_transfer,
+    list_transfers,
+)
 
 app = typer.Typer(
     name="gh-toolkit",
@@ -40,7 +55,7 @@ def version_callback(value: bool) -> None:
 def main(
     version: bool | None = typer.Option(
         None, "--version", "-v", help="Show version and exit", callback=version_callback
-    )
+    ),
 ) -> None:
     """GitHub Toolkit - Repository portfolio management and presentation."""
     pass
@@ -59,14 +74,6 @@ def info() -> None:
 
     console.print(table)
 
-
-# Import commands
-from gh_toolkit.commands.invite import accept_invitations, leave_repositories
-from gh_toolkit.commands.page import generate_page
-from gh_toolkit.commands.repo import extract_repos, list_repos, health_check, clone_repos
-from gh_toolkit.commands.site import generate_site
-from gh_toolkit.commands.tag import tag_repos
-from gh_toolkit.commands.transfer import initiate_transfer, list_transfers, accept_transfers
 
 # Repo commands
 repo_app.command("list")(list_repos)

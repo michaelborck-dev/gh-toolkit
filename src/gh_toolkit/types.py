@@ -5,15 +5,16 @@ used throughout the application, providing complete type safety for GitHub API
 responses and internal data flows.
 """
 
-from typing import TypedDict, Literal, NotRequired, Protocol
-
+from typing import Literal, NotRequired, Protocol, TypedDict
 
 # =============================================================================
 # GitHub API Response Types
 # =============================================================================
 
+
 class GitHubLicense(TypedDict):
     """GitHub license information."""
+
     key: str
     name: str
     spdx_id: str
@@ -22,6 +23,7 @@ class GitHubLicense(TypedDict):
 
 class GitHubUser(TypedDict):
     """GitHub user or organization information."""
+
     id: int
     login: str
     type: Literal["User", "Organization"]
@@ -40,6 +42,7 @@ class GitHubUser(TypedDict):
 
 class GitHubRepository(TypedDict):
     """GitHub repository information."""
+
     id: int
     name: str
     full_name: str
@@ -77,6 +80,7 @@ class GitHubRepository(TypedDict):
 
 class GitHubInvitation(TypedDict):
     """GitHub repository invitation information."""
+
     id: int
     repository: GitHubRepository
     invitee: GitHubUser
@@ -87,12 +91,14 @@ class GitHubInvitation(TypedDict):
 
 class GitHubTransferRequest(TypedDict):
     """GitHub repository transfer request."""
+
     new_owner: str
     new_name: NotRequired[str]
 
 
 class GitHubTransferResponse(TypedDict):
     """GitHub repository transfer response."""
+
     id: int
     name: str
     full_name: str
@@ -108,6 +114,7 @@ class GitHubTransferResponse(TypedDict):
 
 class GitHubOrganizationInvitation(TypedDict):
     """GitHub organization invitation information."""
+
     id: int
     login: str
     email: str | None
@@ -120,6 +127,7 @@ class GitHubOrganizationInvitation(TypedDict):
 
 class GitHubWorkflow(TypedDict):
     """GitHub Actions workflow information."""
+
     id: int
     name: str
     path: str
@@ -133,12 +141,14 @@ class GitHubWorkflow(TypedDict):
 
 class GitHubWorkflowsResponse(TypedDict):
     """GitHub Actions workflows list response."""
+
     total_count: int
     workflows: list[GitHubWorkflow]
 
 
 class GitHubContent(TypedDict):
     """GitHub repository content information."""
+
     name: str
     path: str
     sha: str
@@ -154,6 +164,7 @@ class GitHubContent(TypedDict):
 
 class GitHubReadme(TypedDict):
     """GitHub repository README information."""
+
     name: str
     path: str
     sha: str
@@ -171,8 +182,10 @@ class GitHubReadme(TypedDict):
 # Repository Health Check Types
 # =============================================================================
 
+
 class HealthCheck(TypedDict):
     """Individual health check result."""
+
     name: str
     category: str
     message: str
@@ -184,6 +197,7 @@ class HealthCheck(TypedDict):
 
 class HealthCategoryScore(TypedDict):
     """Health score for a specific category."""
+
     score: int
     max_score: int
     percentage: float
@@ -193,6 +207,7 @@ class HealthCategoryScore(TypedDict):
 
 class HealthSummary(TypedDict):
     """Summary of health check results."""
+
     total_checks: int
     passed_checks: int
     failed_checks: int
@@ -203,6 +218,7 @@ class HealthSummary(TypedDict):
 
 class HealthReport(TypedDict):
     """Complete health check report."""
+
     repository: str
     timestamp: str
     total_score: int
@@ -217,8 +233,10 @@ class HealthReport(TypedDict):
 # Repository Cloning Types
 # =============================================================================
 
+
 class CloneResult(TypedDict):
     """Result of a repository clone operation."""
+
     repo_name: str
     repo_url: str
     target_path: str
@@ -230,12 +248,14 @@ class CloneResult(TypedDict):
 
 class CloneError(TypedDict):
     """Error information for failed clone."""
+
     repo_name: str
     error: str
 
 
 class CloneStats(TypedDict):
     """Statistics for clone operations."""
+
     total_repos: int
     successful: int
     failed: int
@@ -245,6 +265,7 @@ class CloneStats(TypedDict):
 
 class CloneOptions(TypedDict, total=False):
     """Options for repository cloning."""
+
     branch: str
     depth: int
     use_ssh: bool
@@ -258,8 +279,10 @@ class CloneOptions(TypedDict, total=False):
 # Repository Extraction Types
 # =============================================================================
 
+
 class ExtractedRepository(TypedDict):
     """Extracted repository data with categorization."""
+
     name: str
     full_name: str
     description: str | None
@@ -295,8 +318,10 @@ class ExtractedRepository(TypedDict):
 # Site Generation Types
 # =============================================================================
 
+
 class SiteTheme(TypedDict):
     """Website theme configuration."""
+
     name: str
     title: str
     description: str
@@ -309,6 +334,7 @@ class SiteTheme(TypedDict):
 
 class SiteOptions(TypedDict, total=False):
     """Options for site generation."""
+
     title: str
     description: str
     theme: str
@@ -322,6 +348,7 @@ class SiteOptions(TypedDict, total=False):
 
 class PageOptions(TypedDict, total=False):
     """Options for page generation."""
+
     title: str
     description: str
     author: str
@@ -335,8 +362,10 @@ class PageOptions(TypedDict, total=False):
 # Topic Tagging Types
 # =============================================================================
 
+
 class TopicSuggestion(TypedDict):
     """Suggested topic for a repository."""
+
     topic: str
     confidence: float
     reason: str
@@ -345,6 +374,7 @@ class TopicSuggestion(TypedDict):
 
 class TaggingResult(TypedDict):
     """Result of topic tagging operation."""
+
     repository: str
     existing_topics: list[str]
     suggested_topics: list[TopicSuggestion]
@@ -358,11 +388,13 @@ class TaggingResult(TypedDict):
 # Protocol Interfaces
 # =============================================================================
 
+
 class ProgressCallback(Protocol):
     """Callback protocol for progress reporting."""
+
     def __call__(self, current: int, total: int, message: str = "") -> None:
         """Report progress.
-        
+
         Args:
             current: Current progress value
             total: Total expected value
@@ -373,9 +405,10 @@ class ProgressCallback(Protocol):
 
 class CloneProgressCallback(Protocol):
     """Callback protocol for clone progress reporting."""
+
     def __call__(self, result: CloneResult, completed: int, total: int) -> None:
         """Report clone progress.
-        
+
         Args:
             result: Clone result for completed operation
             completed: Number of completed operations
@@ -386,27 +419,21 @@ class CloneProgressCallback(Protocol):
 
 class GitHubAPIClient(Protocol):
     """Protocol for GitHub API client interface."""
-    
+
     def get_repository(self, owner: str, repo: str) -> GitHubRepository:
         """Get repository information."""
         ...
-    
+
     def get_user_repos(
-        self, 
-        username: str | None = None,
-        repo_type: str = "all"
+        self, username: str | None = None, repo_type: str = "all"
     ) -> list[GitHubRepository]:
         """Get user repositories."""
         ...
-    
-    def get_org_repos(
-        self, 
-        org: str,
-        repo_type: str = "all"
-    ) -> list[GitHubRepository]:
+
+    def get_org_repos(self, org: str, repo_type: str = "all") -> list[GitHubRepository]:
         """Get organization repositories."""
         ...
-    
+
     def get_user_info(self, username: str | None = None) -> GitHubUser:
         """Get user information."""
         ...

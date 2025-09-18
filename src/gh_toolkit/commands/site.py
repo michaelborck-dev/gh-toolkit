@@ -21,36 +21,29 @@ def generate_site(
         "educational",
         "--theme",
         "-t",
-        help="Site theme (educational, resume, research, portfolio)"
+        help="Site theme (educational, resume, research, portfolio)",
     ),
     output: str = typer.Option(
-        "portfolio_site.html",
-        "--output",
-        "-o",
-        help="Output HTML file path"
+        "portfolio_site.html", "--output", "-o", help="Output HTML file path"
     ),
     title: str | None = typer.Option(
-        None,
-        "--title",
-        help="Custom site title (overrides theme default)"
+        None, "--title", help="Custom site title (overrides theme default)"
     ),
     description: str | None = typer.Option(
-        None,
-        "--description",
-        help="Custom site description (overrides theme default)"
+        None, "--description", help="Custom site description (overrides theme default)"
     ),
     metadata: str | None = typer.Option(
         None,
         "--metadata",
         "-m",
-        help="Path to metadata YAML file for additional customization"
+        help="Path to metadata YAML file for additional customization",
     ),
 ) -> None:
     """Generate a beautiful portfolio landing page from repository data.
-    
+
     Creates a responsive, searchable HTML site showcasing your repositories
     organized by category with filtering and theming capabilities.
-    
+
     Example:
         gh-toolkit site generate repos.json --theme educational --output my_portfolio.html
     """
@@ -65,29 +58,35 @@ def generate_site(
 
         # Determine file format and load data
         repos_list: list[dict[str, Any]] = []
-        if repos_path.suffix.lower() == '.json':
-            with open(repos_path, encoding='utf-8') as f:
+        if repos_path.suffix.lower() == ".json":
+            with open(repos_path, encoding="utf-8") as f:
                 data = json.load(f)
                 # Handle both direct list and nested structure
                 if isinstance(data, list):
                     repos_list = data  # type: ignore[assignment]
-                elif isinstance(data, dict) and 'repositories' in data:
-                    repos_list = data['repositories']  # type: ignore[assignment]
+                elif isinstance(data, dict) and "repositories" in data:
+                    repos_list = data["repositories"]  # type: ignore[assignment]
                 else:
-                    console.print("[red]✗ Invalid JSON format. Expected list of repositories or object with 'repositories' key[/red]")
+                    console.print(
+                        "[red]✗ Invalid JSON format. Expected list of repositories or object with 'repositories' key[/red]"
+                    )
                     raise typer.Exit(1)
-        elif repos_path.suffix.lower() in ['.yaml', '.yml']:
-            with open(repos_path, encoding='utf-8') as f:
+        elif repos_path.suffix.lower() in [".yaml", ".yml"]:
+            with open(repos_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
                 if isinstance(data, list):
                     repos_list = data  # type: ignore[assignment]
-                elif isinstance(data, dict) and 'repositories' in data:
-                    repos_list = data['repositories']  # type: ignore[assignment]
+                elif isinstance(data, dict) and "repositories" in data:
+                    repos_list = data["repositories"]  # type: ignore[assignment]
                 else:
-                    console.print("[red]✗ Invalid YAML format. Expected list of repositories or object with 'repositories' key[/red]")
+                    console.print(
+                        "[red]✗ Invalid YAML format. Expected list of repositories or object with 'repositories' key[/red]"
+                    )
                     raise typer.Exit(1)
         else:
-            console.print(f"[red]✗ Unsupported file format: {repos_path.suffix}. Use .json or .yaml/.yml[/red]")
+            console.print(
+                f"[red]✗ Unsupported file format: {repos_path.suffix}. Use .json or .yaml/.yml[/red]"
+            )
             raise typer.Exit(1)
 
         if not repos_list:
@@ -107,13 +106,15 @@ def generate_site(
                 raise typer.Exit(1)
 
             console.print(f"[blue]📄 Loading metadata from {metadata_path}[/blue]")
-            with open(metadata_path, encoding='utf-8') as f:
-                if metadata_path.suffix.lower() in ['.yaml', '.yml']:
+            with open(metadata_path, encoding="utf-8") as f:
+                if metadata_path.suffix.lower() in [".yaml", ".yml"]:
                     metadata_dict = yaml.safe_load(f) or {}
                 else:
                     metadata_dict = json.load(f) or {}
 
-            console.print(f"[green]✓ Loaded metadata for {len(metadata_dict)} items[/green]")
+            console.print(
+                f"[green]✓ Loaded metadata for {len(metadata_dict)} items[/green]"
+            )
 
         # Generate site
         console.print(f"[blue]🎨 Generating site with '{theme}' theme[/blue]")
@@ -125,14 +126,16 @@ def generate_site(
             output_file=output,
             metadata=metadata_dict,
             title=title,
-            description=description
+            description=description,
         )
 
         # Show summary
         output_path = Path(output)
         console.print("\n[green]🎉 Portfolio site generated successfully![/green]")
         console.print(f"[blue]📍 Location: {output_path.absolute()}[/blue]")
-        console.print(f"[blue]💡 Open in browser: file://{output_path.absolute()}[/blue]")
+        console.print(
+            f"[blue]💡 Open in browser: file://{output_path.absolute()}[/blue]"
+        )
 
         # Show theme info
         available_themes = ["educational", "resume", "research", "portfolio"]
@@ -140,16 +143,16 @@ def generate_site(
 
     except FileNotFoundError as e:
         console.print(f"[red]✗ File not found: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except json.JSONDecodeError as e:
         console.print(f"[red]✗ Invalid JSON format: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except yaml.YAMLError as e:
         console.print(f"[red]✗ Invalid YAML format: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except ValueError as e:
         console.print(f"[red]✗ {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         console.print(f"[red]✗ Unexpected error: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e

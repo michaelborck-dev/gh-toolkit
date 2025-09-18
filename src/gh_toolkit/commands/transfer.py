@@ -49,7 +49,9 @@ def initiate_transfer(
         # Use provided token or fallback to environment
         github_token = token or os.environ.get("GITHUB_TOKEN")
         if not github_token:
-            console.print("[red]Error: GitHub token required for repository transfers[/red]")
+            console.print(
+                "[red]Error: GitHub token required for repository transfers[/red]"
+            )
             console.print("Set GITHUB_TOKEN environment variable or use --token option")
             console.print("Get a token at: https://github.com/settings/tokens")
             console.print("Required scopes: repo, write:org")
@@ -64,7 +66,7 @@ def initiate_transfer(
             console.print(f"[blue]Initiating transfers for user: {username}[/blue]")
         except GitHubAPIError as e:
             console.print(f"[red]Error getting user info: {e.message}[/red]")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
         console.print()
 
@@ -74,13 +76,15 @@ def initiate_transfer(
         if file:
             # Read from CSV file
             try:
-                with open(file, 'r') as f:
+                with open(file) as f:
                     reader = csv.reader(f)
                     for line_num, row in enumerate(reader, 1):
-                        if not row or row[0].startswith('#'):
+                        if not row or row[0].startswith("#"):
                             continue
                         if len(row) < 2:
-                            console.print(f"[yellow]Warning: Skipping line {line_num} - invalid format[/yellow]")
+                            console.print(
+                                f"[yellow]Warning: Skipping line {line_num} - invalid format[/yellow]"
+                            )
                             continue
 
                         repo_full_name = row[0].strip()
@@ -88,32 +92,36 @@ def initiate_transfer(
                         repo_new_name = row[2].strip() if len(row) > 2 else None
 
                         if not dest_org:
-                            console.print(f"[yellow]Warning: Skipping line {line_num} - no destination organization[/yellow]")
+                            console.print(
+                                f"[yellow]Warning: Skipping line {line_num} - no destination organization[/yellow]"
+                            )
                             continue
 
                         transfers.append((repo_full_name, dest_org, repo_new_name))
 
-            except FileNotFoundError:
+            except FileNotFoundError as e:
                 console.print(f"[red]Error: File {file} not found[/red]")
-                raise typer.Exit(1)
+                raise typer.Exit(1) from e
             except Exception as e:
                 console.print(f"[red]Error reading file: {e}[/red]")
-                raise typer.Exit(1)
+                raise typer.Exit(1) from e
 
         elif repo_spec and destination:
             # Single repository transfer
             transfers.append((repo_spec, destination, new_name))
 
-        elif repo_spec and ',' in repo_spec:
+        elif repo_spec and "," in repo_spec:
             # Legacy format: "owner/repo,destination"
-            parts = repo_spec.split(',', 1)
+            parts = repo_spec.split(",", 1)
             if len(parts) == 2:
                 transfers.append((parts[0].strip(), parts[1].strip(), new_name))
             else:
                 console.print("[red]Error: Invalid repository specification[/red]")
                 raise typer.Exit(1)
         else:
-            console.print("[red]Error: Must specify either repo and destination, or use --file option[/red]")
+            console.print(
+                "[red]Error: Must specify either repo and destination, or use --file option[/red]"
+            )
             console.print("Examples:")
             console.print("  gh-toolkit transfer initiate owner/repo dest-org")
             console.print("  gh-toolkit transfer initiate --file repos.csv")
@@ -135,7 +143,9 @@ def initiate_transfer(
         console.print(table)
 
         if dry_run:
-            console.print("\n[yellow]Dry run mode - no transfers will be initiated[/yellow]")
+            console.print(
+                "\n[yellow]Dry run mode - no transfers will be initiated[/yellow]"
+            )
             return
 
         # Confirm before proceeding
@@ -150,7 +160,7 @@ def initiate_transfer(
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
-            console=console
+            console=console,
         ) as progress:
             task = progress.add_task("Processing transfers...", total=len(transfers))
 
@@ -159,51 +169,61 @@ def initiate_transfer(
 
                 try:
                     # Parse owner/repo
-                    if '/' not in repo_name:
-                        console.print(f"[red]Error: Invalid repository format '{repo_name}' - expected 'owner/repo'[/red]")
+                    if "/" not in repo_name:
+                        console.print(
+                            f"[red]Error: Invalid repository format '{repo_name}' - expected 'owner/repo'[/red]"
+                        )
                         failed += 1
                         continue
 
-                    owner, repo = repo_name.split('/', 1)
+                    owner, repo = repo_name.split("/", 1)
 
                     # Initiate transfer
                     result = client.transfer_repository(
                         owner=owner,
                         repo=repo,
                         new_owner=dest_org,
-                        new_name=new_repo_name
+                        new_name=new_repo_name,
                     )
                     # Safe cast after API call validation
                     transfer_result = cast(GitHubTransferResponse, result)
 
-                    console.print(f"[green]✓ Transfer initiated: {repo_name} → {dest_org}[/green]")
+                    console.print(
+                        f"[green]✓ Transfer initiated: {repo_name} → {dest_org}[/green]"
+                    )
                     if new_repo_name:
                         console.print(f"  New name: {new_repo_name}")
                     console.print(f"  Transfer URL: {transfer_result['html_url']}")
                     successful += 1
 
                 except GitHubAPIError as e:
-                    console.print(f"[red]✗ Failed to transfer {repo_name}: {e.message}[/red]")
+                    console.print(
+                        f"[red]✗ Failed to transfer {repo_name}: {e.message}[/red]"
+                    )
                     failed += 1
                 except Exception as e:
-                    console.print(f"[red]✗ Unexpected error transferring {repo_name}: {e}[/red]")
+                    console.print(
+                        f"[red]✗ Unexpected error transferring {repo_name}: {e}[/red]"
+                    )
                     failed += 1
 
                 progress.advance(task)
 
         # Summary
-        console.print(f"\n[bold]Transfer Summary:[/bold]")
+        console.print("\n[bold]Transfer Summary:[/bold]")
         console.print(f"✓ Successful: {successful}")
         if failed > 0:
             console.print(f"✗ Failed: {failed}")
 
         if successful > 0:
-            console.print("\n[yellow]Note: Transfers require acceptance by the destination organization owners.[/yellow]")
+            console.print(
+                "\n[yellow]Note: Transfers require acceptance by the destination organization owners.[/yellow]"
+            )
             console.print("Use 'gh-toolkit transfer list' to check pending transfers.")
 
     except Exception as e:
         console.print(f"[red]Unexpected error: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def list_transfers(
@@ -220,7 +240,9 @@ def list_transfers(
         # Use provided token or fallback to environment
         github_token = token or os.environ.get("GITHUB_TOKEN")
         if not github_token:
-            console.print("[red]Error: GitHub token required for checking transfers[/red]")
+            console.print(
+                "[red]Error: GitHub token required for checking transfers[/red]"
+            )
             console.print("Set GITHUB_TOKEN environment variable or use --token option")
             console.print("Get a token at: https://github.com/settings/tokens")
             console.print("Required scopes: repo, read:org")
@@ -235,7 +257,7 @@ def list_transfers(
             console.print(f"[blue]Checking transfers for user: {username}[/blue]")
         except GitHubAPIError as e:
             console.print(f"[red]Error getting user info: {e.message}[/red]")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
         console.print()
 
@@ -246,7 +268,9 @@ def list_transfers(
                 invitations = client.get_organization_transfers(org)
 
                 if not invitations:
-                    console.print(f"[green]No pending transfers found for organization '{org}'[/green]")
+                    console.print(
+                        f"[green]No pending transfers found for organization '{org}'[/green]"
+                    )
                     return
 
                 table = Table()
@@ -260,13 +284,15 @@ def list_transfers(
                         str(invitation["id"]),
                         invitation["login"],
                         invitation["role"],
-                        invitation["created_at"][:10]  # Just the date
+                        invitation["created_at"][:10],  # Just the date
                     )
 
                 console.print(table)
 
             except GitHubAPIError as e:
-                console.print(f"[red]Error checking organization transfers: {e.message}[/red]")
+                console.print(
+                    f"[red]Error checking organization transfers: {e.message}[/red]"
+                )
                 console.print("Make sure you have admin access to the organization")
 
         else:
@@ -276,7 +302,9 @@ def list_transfers(
                 invitations = client.get_repository_transfers()
 
                 if not invitations:
-                    console.print("[green]No pending repository transfers found[/green]")
+                    console.print(
+                        "[green]No pending repository transfers found[/green]"
+                    )
                     return
 
                 table = Table()
@@ -293,18 +321,22 @@ def list_transfers(
                         repo_info.get("full_name", "Unknown"),
                         inviter_info.get("login", "Unknown"),
                         invitation.get("permissions", "Unknown"),
-                        invitation.get("created_at", "Unknown")[:10]  # Just the date
+                        invitation.get("created_at", "Unknown")[:10],  # Just the date
                     )
 
                 console.print(table)
-                console.print(f"\n[dim]Found {len(invitations)} pending transfer(s)[/dim]")
+                console.print(
+                    f"\n[dim]Found {len(invitations)} pending transfer(s)[/dim]"
+                )
 
             except GitHubAPIError as e:
-                console.print(f"[red]Error checking repository transfers: {e.message}[/red]")
+                console.print(
+                    f"[red]Error checking repository transfers: {e.message}[/red]"
+                )
 
     except Exception as e:
         console.print(f"[red]Unexpected error: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def accept_transfers(
@@ -327,7 +359,9 @@ def accept_transfers(
         # Use provided token or fallback to environment
         github_token = token or os.environ.get("GITHUB_TOKEN")
         if not github_token:
-            console.print("[red]Error: GitHub token required for accepting transfers[/red]")
+            console.print(
+                "[red]Error: GitHub token required for accepting transfers[/red]"
+            )
             console.print("Set GITHUB_TOKEN environment variable or use --token option")
             console.print("Get a token at: https://github.com/settings/tokens")
             console.print("Required scopes: repo, write:org")
@@ -342,7 +376,7 @@ def accept_transfers(
             console.print(f"[blue]Accepting transfers for user: {username}[/blue]")
         except GitHubAPIError as e:
             console.print(f"[red]Error getting user info: {e.message}[/red]")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
         console.print()
 
@@ -357,12 +391,21 @@ def accept_transfers(
             # Filter by organization if specified
             if org:
                 original_count = len(invitations)
-                invitations = [inv for inv in invitations
-                             if inv.get("repository", {}).get("full_name", "").startswith(f"{org}/")]
-                console.print(f"[dim]Filtered to {len(invitations)} transfer(s) for organization '{org}' (from {original_count} total)[/dim]")
+                invitations = [
+                    inv
+                    for inv in invitations
+                    if inv.get("repository", {})
+                    .get("full_name", "")
+                    .startswith(f"{org}/")
+                ]
+                console.print(
+                    f"[dim]Filtered to {len(invitations)} transfer(s) for organization '{org}' (from {original_count} total)[/dim]"
+                )
 
             if not invitations:
-                console.print(f"[yellow]No pending transfers found for organization '{org}'[/yellow]")
+                console.print(
+                    f"[yellow]No pending transfers found for organization '{org}'[/yellow]"
+                )
                 return
 
             # Display transfers to accept
@@ -380,13 +423,15 @@ def accept_transfers(
                     str(invitation["id"]),
                     repo_info.get("full_name", "Unknown"),
                     inviter_info.get("login", "Unknown"),
-                    invitation.get("permissions", "Unknown")
+                    invitation.get("permissions", "Unknown"),
                 )
 
             console.print(table)
 
             if dry_run:
-                console.print(f"\n[yellow]Dry run mode - {len(invitations)} transfer(s) would be accepted[/yellow]")
+                console.print(
+                    f"\n[yellow]Dry run mode - {len(invitations)} transfer(s) would be accepted[/yellow]"
+                )
                 return
 
             # Confirm before proceeding
@@ -402,37 +447,51 @@ def accept_transfers(
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
-                console=console
+                console=console,
             ) as progress:
-                task = progress.add_task("Accepting transfers...", total=len(invitations))
+                task = progress.add_task(
+                    "Accepting transfers...", total=len(invitations)
+                )
 
                 for invitation in invitations:
                     invitation_id = invitation["id"]
-                    repo_name = invitation.get("repository", {}).get("full_name", "Unknown")
+                    repo_name = invitation.get("repository", {}).get(
+                        "full_name", "Unknown"
+                    )
 
-                    progress.update(task, description=f"Accepting transfer for {repo_name}...")
+                    progress.update(
+                        task, description=f"Accepting transfer for {repo_name}..."
+                    )
 
                     try:
                         success = client.accept_repository_invitation(invitation_id)
 
                         if success:
-                            console.print(f"[green]✓ Accepted transfer: {repo_name}[/green]")
+                            console.print(
+                                f"[green]✓ Accepted transfer: {repo_name}[/green]"
+                            )
                             successful += 1
                         else:
-                            console.print(f"[red]✗ Failed to accept transfer: {repo_name}[/red]")
+                            console.print(
+                                f"[red]✗ Failed to accept transfer: {repo_name}[/red]"
+                            )
                             failed += 1
 
                     except GitHubAPIError as e:
-                        console.print(f"[red]✗ Failed to accept {repo_name}: {e.message}[/red]")
+                        console.print(
+                            f"[red]✗ Failed to accept {repo_name}: {e.message}[/red]"
+                        )
                         failed += 1
                     except Exception as e:
-                        console.print(f"[red]✗ Unexpected error accepting {repo_name}: {e}[/red]")
+                        console.print(
+                            f"[red]✗ Unexpected error accepting {repo_name}: {e}[/red]"
+                        )
                         failed += 1
 
                     progress.advance(task)
 
             # Summary
-            console.print(f"\n[bold]Acceptance Summary:[/bold]")
+            console.print("\n[bold]Acceptance Summary:[/bold]")
             console.print(f"✓ Successful: {successful}")
             if failed > 0:
                 console.print(f"✗ Failed: {failed}")
@@ -442,4 +501,4 @@ def accept_transfers(
 
     except Exception as e:
         console.print(f"[red]Unexpected error: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e

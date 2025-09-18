@@ -23,10 +23,14 @@ def tag_repos(
         None, "--token", "-t", help="GitHub token (or set GITHUB_TOKEN env var)"
     ),
     anthropic_key: str | None = typer.Option(
-        None, "--anthropic-key", help="Anthropic API key for LLM tagging (or set ANTHROPIC_API_KEY env var)"
+        None,
+        "--anthropic-key",
+        help="Anthropic API key for LLM tagging (or set ANTHROPIC_API_KEY env var)",
     ),
     dry_run: bool = typer.Option(
-        False, "--dry-run", help="Show what topics would be added without making changes"
+        False,
+        "--dry-run",
+        help="Show what topics would be added without making changes",
     ),
     force: bool = typer.Option(
         False, "--force", help="Update topics even if repository already has topics"
@@ -36,10 +40,10 @@ def tag_repos(
     ),
 ) -> None:
     """Add relevant topic tags to GitHub repositories using LLM analysis.
-    
+
     Automatically generates and applies topic tags to repositories based on their
     content, description, README, and programming languages used.
-    
+
     Examples:
         gh-toolkit repo tag user/repo --dry-run
         gh-toolkit repo tag repos.txt --force
@@ -49,14 +53,20 @@ def tag_repos(
         # Get tokens
         github_token = token or os.environ.get("GITHUB_TOKEN")
         if not github_token:
-            console.print("[red]✗ GitHub token required. Set GITHUB_TOKEN env var or use --token[/red]")
+            console.print(
+                "[red]✗ GitHub token required. Set GITHUB_TOKEN env var or use --token[/red]"
+            )
             console.print("[dim]Required scopes: repo[/dim]")
             raise typer.Exit(1)
 
         anthropic_api_key = anthropic_key or os.environ.get("ANTHROPIC_API_KEY")
         if not anthropic_api_key:
-            console.print("[yellow]⚠ No Anthropic API key provided. Will use rule-based topic generation.[/yellow]")
-            console.print("[dim]For better results, set ANTHROPIC_API_KEY env var or use --anthropic-key[/dim]")
+            console.print(
+                "[yellow]⚠ No Anthropic API key provided. Will use rule-based topic generation.[/yellow]"
+            )
+            console.print(
+                "[dim]For better results, set ANTHROPIC_API_KEY env var or use --anthropic-key[/dim]"
+            )
 
         # Initialize clients
         client = GitHubClient(github_token)
@@ -70,11 +80,15 @@ def tag_repos(
             raise typer.Exit(1)
 
         # Show what we're about to do
-        console.print(f"\n[blue]📋 Found {len(repo_list)} repositories to process[/blue]")
+        console.print(
+            f"\n[blue]📋 Found {len(repo_list)} repositories to process[/blue]"
+        )
         if dry_run:
             console.print("[yellow]🔍 DRY RUN MODE - No changes will be made[/yellow]")
         if force:
-            console.print("[yellow]⚡ FORCE MODE - Will update repositories that already have topics[/yellow]")
+            console.print(
+                "[yellow]⚡ FORCE MODE - Will update repositories that already have topics[/yellow]"
+            )
 
         # Process repositories
         results = tagger.process_multiple_repositories(repo_list, dry_run, force)
@@ -86,12 +100,12 @@ def tag_repos(
         if output:
             _save_results(results, output, dry_run, force)
 
-    except KeyboardInterrupt:
+    except KeyboardInterrupt as e:
         console.print("\n[yellow]⚠ Operation cancelled by user[/yellow]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         console.print(f"[red]✗ Unexpected error: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def _parse_repos_input(repos_input: str, client: GitHubClient) -> list[tuple[str, str]]:
@@ -101,10 +115,10 @@ def _parse_repos_input(repos_input: str, client: GitHubClient) -> list[tuple[str
     # Check if it's a file
     if Path(repos_input).exists():
         console.print(f"[blue]📂 Loading repositories from file: {repos_input}[/blue]")
-        with open(repos_input, encoding='utf-8') as f:
+        with open(repos_input, encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
-                if line and not line.startswith('#'):
+                if line and not line.startswith("#"):
                     try:
                         owner, repo = _parse_repo_string(line)
                         repos.append((owner, repo))
@@ -113,13 +127,17 @@ def _parse_repos_input(repos_input: str, client: GitHubClient) -> list[tuple[str
         return repos
 
     # Check if it's a wildcard pattern (user/*)
-    if repos_input.endswith('/*'):
+    if repos_input.endswith("/*"):
         owner = repos_input[:-2]
-        console.print(f"[blue]🔍 Fetching all repositories for user/org: {owner}[/blue]")
+        console.print(
+            f"[blue]🔍 Fetching all repositories for user/org: {owner}[/blue]"
+        )
         try:
             user_repos = client.get_user_repos(owner)
-            repos = [(owner, repo['name']) for repo in user_repos]
-            console.print(f"[green]✓ Found {len(repos)} repositories for {owner}[/green]")
+            repos = [(owner, repo["name"]) for repo in user_repos]
+            console.print(
+                f"[green]✓ Found {len(repos)} repositories for {owner}[/green]"
+            )
             return repos
         except Exception as e:
             console.print(f"[red]✗ Error fetching repositories for {owner}: {e}[/red]")
@@ -136,7 +154,7 @@ def _parse_repos_input(repos_input: str, client: GitHubClient) -> list[tuple[str
 
 def _parse_repo_string(repo_string: str) -> tuple[str, str]:
     """Parse 'owner/repo' format into owner and repo name."""
-    parts = repo_string.strip().split('/')
+    parts = repo_string.strip().split("/")
     if len(parts) != 2:
         raise ValueError(f"Invalid repo format: {repo_string}. Expected 'owner/repo'")
     return parts[0], parts[1]
@@ -149,7 +167,7 @@ def _show_summary(results: list[dict[str, Any]], dry_run: bool) -> None:
     # Count results by status
     status_counts: dict[str, int] = {}
     for result in results:
-        status: str = result['status']
+        status: str = result["status"]
         status_counts[status] = status_counts.get(status, 0) + 1
 
     # Create summary table
@@ -160,45 +178,59 @@ def _show_summary(results: list[dict[str, Any]], dry_run: bool) -> None:
 
     # Add rows
     if not dry_run:
-        table.add_row("✓ Success", str(status_counts.get('success', 0)), "Topics successfully updated")
-        table.add_row("⏭ Skipped", str(status_counts.get('skipped', 0)), "Already has topics (use --force to update)")
+        table.add_row(
+            "✓ Success",
+            str(status_counts.get("success", 0)),
+            "Topics successfully updated",
+        )
+        table.add_row(
+            "⏭ Skipped",
+            str(status_counts.get("skipped", 0)),
+            "Already has topics (use --force to update)",
+        )
     else:
-        dry_run_count = status_counts.get('dry_run', 0)
-        table.add_row("🔍 Would Update", str(dry_run_count), "Topics would be added/updated")
+        dry_run_count = status_counts.get("dry_run", 0)
+        table.add_row(
+            "🔍 Would Update", str(dry_run_count), "Topics would be added/updated"
+        )
 
-    table.add_row("✗ Errors", str(status_counts.get('error', 0)), "Failed to process")
+    table.add_row("✗ Errors", str(status_counts.get("error", 0)), "Failed to process")
     table.add_row("📋 Total", str(len(results)), "Repositories processed")
 
     console.print(table)
 
     # Show error details if any
-    errors = [r for r in results if r['status'] == 'error']
+    errors = [r for r in results if r["status"] == "error"]
     if errors:
         console.print("\n[red]❌ Error Details:[/red]")
         for error in errors:
-            console.print(f"  [red]•[/red] {error['repo']}: {error.get('message', 'Unknown error')}")
+            console.print(
+                f"  [red]•[/red] {error['repo']}: {error.get('message', 'Unknown error')}"
+            )
 
 
-def _save_results(results: list[dict[str, Any]], output_path: str, dry_run: bool, force: bool) -> None:
+def _save_results(
+    results: list[dict[str, Any]], output_path: str, dry_run: bool, force: bool
+) -> None:
     """Save results to JSON file."""
     from datetime import datetime
 
     output_data = {
-        'timestamp': datetime.now().isoformat(),
-        'dry_run': dry_run,
-        'force_update': force,
-        'total_processed': len(results),
-        'summary': {
-            'success': len([r for r in results if r['status'] == 'success']),
-            'skipped': len([r for r in results if r['status'] == 'skipped']),
-            'errors': len([r for r in results if r['status'] == 'error']),
-            'dry_run': len([r for r in results if r['status'] == 'dry_run']),
+        "timestamp": datetime.now().isoformat(),
+        "dry_run": dry_run,
+        "force_update": force,
+        "total_processed": len(results),
+        "summary": {
+            "success": len([r for r in results if r["status"] == "success"]),
+            "skipped": len([r for r in results if r["status"] == "skipped"]),
+            "errors": len([r for r in results if r["status"] == "error"]),
+            "dry_run": len([r for r in results if r["status"] == "dry_run"]),
         },
-        'results': results
+        "results": results,
     }
 
     output_file = Path(output_path)
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2)
 
     console.print(f"\n[green]💾 Results saved to: {output_file.absolute()}[/green]")
