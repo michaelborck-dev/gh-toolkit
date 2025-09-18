@@ -257,43 +257,52 @@ class GitHubClient:
 
     def accept_repository_invitation(self, invitation_id: int) -> bool:
         """Accept a repository invitation.
-        
+
         Args:
             invitation_id: ID of the invitation to accept
-            
+
         Returns:
             True if successful, False otherwise
         """
         endpoint = f"/user/repository_invitations/{invitation_id}"
         try:
-            self._make_request("PATCH", endpoint)
-            return True
-        except GitHubAPIError:
+            response = self._make_request("PATCH", endpoint)
+            if response.status_code != 204:
+                console.print(f"[yellow]Warning: Expected status 204 but got {response.status_code} for repo invitation {invitation_id}[/yellow]")
+            return response.status_code == 204
+        except GitHubAPIError as e:
+            console.print(f"[yellow]API error while accepting repo invitation {invitation_id}: {e.message}[/yellow]")
             return False
 
     def get_organization_invitations(self) -> list[dict[str, Any]]:
         """Get pending organization invitations for the authenticated user.
-        
+
         Returns:
             List of organization invitation data
         """
         endpoint = "/user/organization_invitations"
-        response = self._make_request("GET", endpoint)
-        return response.json()
+        try:
+            response = self._make_request("GET", endpoint)
+            return response.json()
+        except GitHubAPIError as e:
+            # 404 means no pending invitations
+            if e.status_code == 404:
+                return []
+            raise
 
     def accept_organization_invitation(self, invitation_id: int) -> bool:
         """Accept an organization invitation.
-        
+
         Args:
             invitation_id: ID of the invitation to accept
-            
+
         Returns:
             True if successful, False otherwise
         """
         endpoint = f"/user/organization_invitations/{invitation_id}"
         try:
-            self._make_request("PATCH", endpoint)
-            return True
+            response = self._make_request("PATCH", endpoint)
+            return response.status_code == 204
         except GitHubAPIError:
             return False
 

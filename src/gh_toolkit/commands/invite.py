@@ -77,11 +77,17 @@ def accept_invitations(
 
                             progress.update(task, description=f"Accepting {repo_full_name}...")
 
-                            if invite_id and client.accept_repository_invitation(invite_id):
+                            if not invite_id:
+                                console.print(f"[red]✗ Missing invitation id: {repo_full_name}[/red]")
+                                progress.advance(task)
+                                continue
+
+                            accepted = client.accept_repository_invitation(invite_id)
+                            if accepted:
                                 console.print(f"[green]✓ Accepted repository invitation: {repo_full_name}[/green]")
                                 success_count += 1
                             else:
-                                console.print(f"[red]✗ Failed to accept repository invitation: {repo_full_name}[/red]")
+                                console.print(f"[red]✗ Failed to accept repository invitation: {repo_full_name}")
 
                             progress.advance(task)
 
@@ -124,7 +130,12 @@ def accept_invitations(
 
                             progress.update(task, description=f"Accepting {org_login}...")
 
-                            if invite_id and client.accept_organization_invitation(invite_id):
+                            if not invite_id:
+                                console.print(f"[red]✗ Missing invitation id for org: {org_login}[/red]")
+                                progress.advance(task)
+                                continue
+
+                            if client.accept_organization_invitation(invite_id):
                                 console.print(f"[green]✓ Accepted organization invitation: {org_login}[/green]")
                                 success_count += 1
                             else:
