@@ -3,7 +3,7 @@
 import csv
 import os
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import typer
 from rich.console import Console
@@ -228,7 +228,7 @@ def initiate_transfer(
 
 def list_transfers(
     org: str | None = typer.Option(
-        None, "--org", help="Organization to check for pending transfers"
+        None, "--org", help="Filter pending repository transfers by organization"
     ),
     token: str | None = typer.Option(
         None, "--token", "-t", help="GitHub token (or set GITHUB_TOKEN env var)"
@@ -262,38 +262,69 @@ def list_transfers(
         console.print()
 
         if org:
-            # Check specific organization
-            console.print(f"[bold]📋 Pending Transfers for Organization: {org}[/bold]")
+            # Check repository transfers for specific organization
+            console.print(
+                f"[bold]📋 Pending Repository Transfers from Organization: {org}[/bold]"
+            )
             try:
-                invitations = client.get_organization_transfers(org)
+                # Get all repository transfers and filter by current repository owner/organization
+                all_invitations = client.get_repository_transfers()
+                org_invitations: list[dict[str, Any]] = []
 
-                if not invitations:
+                for invitation in all_invitations:
+                    repo_info = invitation.get("repository", {})
+                    repo_full_name = repo_info.get("full_name", "")
+
+                    # Filter by current repository owner/organization
+                    # Shows transfers FROM the specified organization
+                    if "/" in repo_full_name:
+                        repo_owner = repo_full_name.split("/")[0]
+                        if repo_owner.lower() == org.lower():
+                            org_invitations.append(invitation)
+                    else:
+                        # Include repos without clear owner format
+                        org_invitations.append(invitation)
+
+                if not org_invitations:
                     console.print(
-                        f"[green]No pending transfers found for organization '{org}'[/green]"
+                        f"[yellow]No pending repository transfers found for organization '{org}'[/yellow]"
                     )
+                    if all_invitations:
+                        console.print(
+                            f"[dim]Found {len(all_invitations)} transfer(s) for other organizations[/dim]"
+                        )
                     return
 
                 table = Table()
-                table.add_column("ID", style="dim")
-                table.add_column("User", style="cyan")
-                table.add_column("Role", style="yellow")
+                table.add_column("Repository", style="cyan")
+                table.add_column("From", style="yellow")
+                table.add_column("Permissions", style="dim")
                 table.add_column("Created", style="dim")
 
-                for invitation in invitations:
+                for invitation in org_invitations:
+                    repo_info = invitation.get("repository", {})
+                    inviter_info = invitation.get("inviter", {})
+
                     table.add_row(
-                        str(invitation["id"]),
-                        invitation["login"],
-                        invitation["role"],
-                        invitation["created_at"][:10],  # Just the date
+                        repo_info.get("full_name", "Unknown"),
+                        inviter_info.get("login", "Unknown"),
+                        invitation.get("permissions", "Unknown"),
+                        invitation.get("created_at", "Unknown")[:10],  # Just the date
                     )
 
                 console.print(table)
+                console.print(
+                    f"\n[dim]Found {len(org_invitations)} pending repository transfer(s)[/dim]"
+                )
+                if org_invitations and len(all_invitations) > len(org_invitations):
+                    console.print(
+                        f"[dim]Filtered from {len(all_invitations)} total pending transfers[/dim]"
+                    )
 
             except GitHubAPIError as e:
                 console.print(
-                    f"[red]Error checking organization transfers: {e.message}[/red]"
+                    f"[red]Error checking repository transfers: {e.message}[/red]"
                 )
-                console.print("Make sure you have admin access to the organization")
 
         else:
             # Check user repository invitations/transfers

@@ -32,7 +32,8 @@ console = Console()
 # Create subcommands
 repo_app = typer.Typer(help="Repository management commands")
 invite_app = typer.Typer(help="Invitation management commands")
-transfer_app = typer.Typer(help="Repository transfer management commands")
+transfer_app = typer.Typer(help="Transfer management commands")
+
 site_app = typer.Typer(help="Site generation commands")
 page_app = typer.Typer(help="Page generation commands")
 
@@ -85,6 +86,7 @@ repo_app.command("clone")(clone_repos)
 # Invite commands
 invite_app.command("accept")(accept_invitations)
 invite_app.command("leave")(leave_repositories)
+
 
 # Transfer commands
 transfer_app.command("initiate")(initiate_transfer)

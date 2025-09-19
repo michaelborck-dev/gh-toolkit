@@ -467,13 +467,17 @@ class GitHubClient:
         return self.get_repository_invitations()
 
     def get_organization_transfers(self, org_name: str) -> list[dict[str, Any]]:
-        """Get pending repository transfers for an organization.
+        """Get pending organization membership invitations (NOT repository transfers).
+
+        Note: This method actually gets organization membership invitations,
+        not repository transfers. GitHub's API doesn't provide a direct way
+        to list repository transfers by destination organization.
 
         Args:
             org_name: Organization name
 
         Returns:
-            List of pending transfer invitations for the organization
+            List of pending organization membership invitations
         """
         endpoint = f"/orgs/{org_name}/invitations"
         try:

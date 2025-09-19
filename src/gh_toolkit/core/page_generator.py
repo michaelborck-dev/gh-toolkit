@@ -313,7 +313,9 @@ class PageGenerator:
                     title_match.group(1) if title_match else clean_item.split(":")[0]
                 )
                 card_content = (
-                    clean_item.replace(card_title, "", 1).removeprefix(": ").removeprefix("** ")
+                    clean_item.replace(card_title, "", 1)
+                    .removeprefix(": ")
+                    .removeprefix("** ")
                 )
                 items_html += f"""
                 <div class="p-6 bg-stone-100 dark:bg-stone-950 rounded-lg border border-stone-200 dark:border-stone-700">
