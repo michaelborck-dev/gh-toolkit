@@ -58,7 +58,7 @@ gh-toolkit follows a layered architecture with clear separation of concerns:
 
 ### CLI Layer (`cli.py`)
 - **Entry point**: Typer-based CLI with rich terminal output
-- **Subcommands**: `repo`, `site`, `page`, `invite` - each with focused responsibilities
+- **Subcommands**: `repo`, `site`, `page`, `invite`, `transfer`, `org`, `portfolio` - each with focused responsibilities
 - **Command registration**: Clean separation using typer sub-applications
 
 ### Commands Layer (`commands/`)
@@ -70,8 +70,8 @@ gh-toolkit follows a layered architecture with clear separation of concerns:
 ### Core Layer (`core/`)
 - **GitHub API Client** (`github_client.py`): Centralized API access with rate limiting
 - **Repository Operations**: Extraction (`repo_extractor.py`), cloning (`repo_cloner.py`), health checking (`health_checker.py`)
-- **Content Generation**: Site generation (`site_generator.py`), page generation (`page_generator.py`)
-- **LLM Integration** (`topic_tagger.py`): Anthropic Claude for intelligent categorization
+- **Content Generation**: Site generation (`site_generator.py`), page generation (`page_generator.py`), README generation (`readme_generator.py`), portfolio generation (`portfolio_generator.py`)
+- **LLM Integration** (`topic_tagger.py`, `readme_generator.py`): Anthropic Claude for intelligent categorization and descriptions
 
 ### Type System (`types.py`)
 - **Comprehensive TypedDict definitions**: All GitHub API responses and internal data structures
@@ -118,8 +118,34 @@ export ANTHROPIC_API_KEY=sk-ant-...  # Optional, enables LLM features
 ### Type Safety Implementation Notes
 - **4 type ignores** in `src/gh_toolkit/commands/site.py` (lines 73, 75, 83, 85) for JSON/YAML loading
 - **1 safe cast** in `src/gh_toolkit/commands/site.py` (line 98) after runtime validation
-- **Defensive patterns** in `repo_extractor.py` and `topic_tagger.py` for external API responses
+- **2 type ignores** in `src/gh_toolkit/core/portfolio_generator.py` for reusing SiteGenerator internals
+- **Defensive patterns** in `repo_extractor.py`, `topic_tagger.py`, and `readme_generator.py` for external API responses
 - All documented in `TYPE_SAFETY_DOCUMENTATION.md` with risk assessment
+
+### New Organization & Portfolio Commands
+
+**Organization README Generator** (`gh-toolkit org readme`):
+```bash
+# Generate README for an organization
+gh-toolkit org readme my-org --output README.md
+gh-toolkit org readme my-org --template detailed --group-by language
+gh-toolkit org readme my-org --max-repos 20 --min-stars 5 --dry-run
+```
+
+**Portfolio Generator** (`gh-toolkit portfolio generate`):
+```bash
+# Generate cross-org portfolio
+gh-toolkit portfolio generate --discover  # Auto-discover user's orgs
+gh-toolkit portfolio generate --org org1 --org org2
+gh-toolkit portfolio generate --discover --html portfolio.html --theme resume
+```
+
+**Portfolio Audit** (`gh-toolkit portfolio audit`):
+```bash
+# Audit repos for missing metadata
+gh-toolkit portfolio audit --discover
+gh-toolkit portfolio audit --org my-org --output audit-report.json
+```
 
 ### Academic Use Case Focus
 - **GitHub Classroom Alternative**: Designed for educators managing student repositories

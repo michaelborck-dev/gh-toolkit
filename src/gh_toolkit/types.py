@@ -464,3 +464,84 @@ URLPath = str
 # Configuration types
 ConfigDict = dict[str, any]
 OptionsDict = dict[str, any]
+
+
+# =============================================================================
+# Organization and Portfolio Types
+# =============================================================================
+
+
+class GitHubOrganization(TypedDict):
+    """GitHub organization information."""
+
+    id: int
+    login: str
+    description: str | None
+    url: str
+    html_url: str
+    avatar_url: str
+    blog: str | None
+    location: str | None
+    public_repos: int
+    name: NotRequired[str | None]
+    email: NotRequired[str | None]
+
+
+class OrgDescription(TypedDict):
+    """LLM-generated organization description."""
+
+    title: str
+    tagline: str
+    focus_areas: list[str]
+    mission: str
+
+
+class AuditIssue(TypedDict):
+    """Individual audit issue for a repository."""
+
+    repo: str
+    org: str
+    issue_type: Literal[
+        "missing_description", "missing_readme", "missing_topics", "missing_license"
+    ]
+    severity: Literal["warning", "error"]
+    suggestion: str
+
+
+class AuditReport(TypedDict):
+    """Complete audit report for repositories."""
+
+    total_repos: int
+    repos_with_issues: int
+    issues: list[AuditIssue]
+    summary: dict[str, int]
+
+
+class PortfolioRepository(TypedDict):
+    """Repository data with organization source tracking."""
+
+    name: str
+    full_name: str
+    description: str | None
+    url: str
+    stars: int
+    forks: int
+    language: str | None
+    languages: list[str]
+    topics: list[str]
+    license: str | None
+    private: bool
+    archived: bool
+    fork: bool
+    category: str
+    category_confidence: float
+    category_reason: str
+    source_org: str
+    created_at: str
+    updated_at: str
+
+
+# Type aliases for organization and portfolio
+OrganizationList = list[GitHubOrganization]
+AuditIssueList = list[AuditIssue]
+PortfolioRepositoryList = list[PortfolioRepository]

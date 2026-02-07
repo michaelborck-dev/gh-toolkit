@@ -485,3 +485,26 @@ class GitHubClient:
         except GitHubAPIError:
             # Fallback to empty list if we don't have access
             return []
+
+    # Organization methods
+
+    def get_user_organizations(self) -> list[dict[str, Any]]:
+        """Get organizations the authenticated user belongs to.
+
+        Returns:
+            List of organization data
+        """
+        return self.get_paginated("/user/orgs")
+
+    def get_org_info(self, org_name: str) -> dict[str, Any]:
+        """Get detailed information about an organization.
+
+        Args:
+            org_name: Organization name
+
+        Returns:
+            Organization information
+        """
+        endpoint = f"/orgs/{org_name}"
+        response = self._make_request("GET", endpoint)
+        return response.json()

@@ -7,7 +7,10 @@ from rich.table import Table
 
 from gh_toolkit import __version__
 from gh_toolkit.commands.invite import accept_invitations, leave_repositories
+from gh_toolkit.commands.org import readme as org_readme
 from gh_toolkit.commands.page import generate_page
+from gh_toolkit.commands.portfolio import audit as portfolio_audit
+from gh_toolkit.commands.portfolio import generate as portfolio_generate
 from gh_toolkit.commands.repo import (
     clone_repos,
     extract_repos,
@@ -33,6 +36,8 @@ console = Console()
 repo_app = typer.Typer(help="Repository management commands")
 invite_app = typer.Typer(help="Invitation management commands")
 transfer_app = typer.Typer(help="Transfer management commands")
+org_app = typer.Typer(help="Organization management commands")
+portfolio_app = typer.Typer(help="Portfolio generation commands")
 
 site_app = typer.Typer(help="Site generation commands")
 page_app = typer.Typer(help="Page generation commands")
@@ -41,6 +46,8 @@ page_app = typer.Typer(help="Page generation commands")
 app.add_typer(repo_app, name="repo")
 app.add_typer(invite_app, name="invite")
 app.add_typer(transfer_app, name="transfer")
+app.add_typer(org_app, name="org")
+app.add_typer(portfolio_app, name="portfolio")
 app.add_typer(site_app, name="site")
 app.add_typer(page_app, name="page")
 
@@ -98,6 +105,13 @@ site_app.command("generate")(generate_site)
 
 # Page commands
 page_app.command("generate")(generate_page)
+
+# Org commands
+org_app.command("readme")(org_readme)
+
+# Portfolio commands
+portfolio_app.command("generate")(portfolio_generate)
+portfolio_app.command("audit")(portfolio_audit)
 
 
 if __name__ == "__main__":

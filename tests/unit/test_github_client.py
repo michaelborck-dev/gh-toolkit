@@ -385,3 +385,88 @@ class TestGitHubClient:
 
         # Should return empty list on error
         assert result == []
+
+    # Organization methods tests
+
+    @responses.activate
+    def test_get_user_organizations(self, mock_github_token):
+        """Test getting user organizations."""
+        orgs_response = [
+            {
+                "login": "org-one",
+                "id": 1001,
+                "description": "First organization",
+                "url": "https://api.github.com/orgs/org-one",
+            },
+            {
+                "login": "org-two",
+                "id": 1002,
+                "description": "Second organization",
+                "url": "https://api.github.com/orgs/org-two",
+            },
+        ]
+
+        responses.add(
+            responses.GET,
+            "https://api.github.com/user/orgs",
+            json=orgs_response,
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "https://api.github.com/user/orgs",
+            json=[],
+            status=200,
+        )
+
+        client = GitHubClient(mock_github_token)
+        result = client.get_user_organizations()
+
+        assert len(result) == 2
+        assert result[0]["login"] == "org-one"
+        assert result[1]["login"] == "org-two"
+
+    @responses.activate
+    def test_get_org_info(self, mock_github_token):
+        """Test getting organization information."""
+        org_response = {
+            "login": "test-org",
+            "id": 12345,
+            "description": "A test organization",
+            "html_url": "https://github.com/test-org",
+            "avatar_url": "https://avatars.githubusercontent.com/u/12345",
+            "blog": "https://test-org.example.com",
+            "location": "San Francisco",
+            "public_repos": 50,
+        }
+
+        responses.add(
+            responses.GET,
+            "https://api.github.com/orgs/test-org",
+            json=org_response,
+            status=200,
+        )
+
+        client = GitHubClient(mock_github_token)
+        result = client.get_org_info("test-org")
+
+        assert result["login"] == "test-org"
+        assert result["description"] == "A test organization"
+        assert result["public_repos"] == 50
+
+    @responses.activate
+    def test_get_org_info_not_found(self, mock_github_token):
+        """Test getting organization information for non-existent org."""
+        responses.add(
+            responses.GET,
+            "https://api.github.com/orgs/nonexistent-org",
+            json={"message": "Not Found"},
+            status=404,
+        )
+
+        client = GitHubClient(mock_github_token)
+        with pytest.raises(GitHubAPIError) as exc_info:
+            client.get_org_info("nonexistent-org")
+
+        assert "404" in str(exc_info.value)
+        assert "Not Found" in exc_info.value.message
