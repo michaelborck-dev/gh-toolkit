@@ -15,6 +15,13 @@ This directory contains detailed documentation for each command and subcommand i
 - [invite accept](invite-accept.md) - Accept repository invitations in bulk
 - [invite leave](invite-leave.md) - Leave repositories where you're a collaborator
 
+### Organization Management
+- [org readme](org-readme.md) - Generate profile README for a GitHub organization
+
+### Portfolio Generation
+- [portfolio generate](portfolio-generate.md) - Generate cross-organization portfolio index
+- [portfolio audit](portfolio-audit.md) - Audit repos for missing descriptions, topics, licenses
+
 ### Site Generation
 - [site generate](site-generate.md) - Generate beautiful portfolio websites from repository data
 - [page generate](page-generate.md) - Generate landing pages from README.md files
@@ -30,6 +37,9 @@ This directory contains detailed documentation for each command and subcommand i
 | `repo clone` | Clone repositories | Parallel processing, smart organization |
 | `invite accept` | Accept invitations | Dry-run mode, bulk processing |
 | `invite leave` | Leave repositories | Confirmation prompts, safety checks |
+| `org readme` | Generate org README | LLM descriptions, 3 templates |
+| `portfolio generate` | Cross-org portfolio | Auto-discover orgs, README + HTML |
+| `portfolio audit` | Audit repositories | Find missing metadata, JSON reports |
 | `site generate` | Create portfolio sites | 4 themes, responsive design |
 | `page generate` | Create landing pages | HTML/Jekyll output, README conversion |
 
