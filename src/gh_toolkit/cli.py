@@ -83,6 +83,22 @@ def info() -> None:
     console.print(table)
 
 
+@app.command()
+def tui() -> None:
+    """Launch interactive TUI for browsing organizations and repositories."""
+    try:
+        from gh_toolkit.tui import GhToolkitApp
+    except ImportError as err:
+        console.print("[red]TUI requires extra dependencies.[/red]")
+        console.print("")
+        console.print("Install with: [cyan]pip install gh-toolkit[tui][/cyan]")
+        console.print("         or: [cyan]uv pip install gh-toolkit[tui][/cyan]")
+        raise typer.Exit(1) from err
+
+    tui_app = GhToolkitApp()
+    tui_app.run()
+
+
 # Repo commands
 repo_app.command("list")(list_repos)
 repo_app.command("extract")(extract_repos)

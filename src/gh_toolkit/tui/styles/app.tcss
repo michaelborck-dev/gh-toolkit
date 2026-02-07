@@ -1,0 +1,137 @@
+/* gh-toolkit TUI styles */
+
+Screen {
+    background: $surface;
+}
+
+/* Header styling */
+Header {
+    dock: top;
+    height: 1;
+    background: $primary;
+}
+
+/* Footer styling */
+Footer {
+    dock: bottom;
+    height: 1;
+}
+
+/* Organization list */
+.org-list {
+    height: 100%;
+    border: solid $primary;
+    padding: 0 1;
+}
+
+.org-list:focus {
+    border: solid $secondary;
+}
+
+/* Repository list */
+.repo-list {
+    height: 100%;
+    border: solid $primary;
+    padding: 0 1;
+}
+
+.repo-list:focus {
+    border: solid $secondary;
+}
+
+/* List items */
+ListView > ListItem {
+    padding: 0 1;
+    height: 1;
+}
+
+ListView > ListItem:hover {
+    background: $primary-darken-1;
+}
+
+ListView > ListItem.--highlight {
+    background: $primary;
+}
+
+/* Stats display */
+.stats-bar {
+    height: 3;
+    padding: 0 1;
+    border-bottom: solid $primary;
+}
+
+.stats-label {
+    color: $text-muted;
+}
+
+.stats-value {
+    color: $text;
+}
+
+.stars {
+    color: $warning;
+}
+
+/* Title areas */
+.screen-title {
+    text-style: bold;
+    padding: 1;
+    height: 3;
+    border-bottom: solid $primary;
+}
+
+/* Repository details */
+.repo-details {
+    padding: 1 2;
+}
+
+.repo-header {
+    text-style: bold;
+    padding-bottom: 1;
+}
+
+.repo-description {
+    padding: 1 0;
+    color: $text;
+}
+
+.repo-stats {
+    padding: 1 0;
+}
+
+.repo-meta {
+    padding: 1 0;
+    color: $text-muted;
+}
+
+/* Action buttons area */
+.actions {
+    padding: 1;
+    border-top: solid $primary;
+    height: auto;
+}
+
+.action-button {
+    margin: 0 1;
+}
+
+/* Vertical container */
+.content {
+    height: 100%;
+}
+
+/* Loading indicator */
+.loading {
+    text-style: italic;
+    color: $text-muted;
+    content-align: center middle;
+    height: 100%;
+}
+
+/* No data message */
+.empty-message {
+    text-style: italic;
+    color: $text-muted;
+    content-align: center middle;
+    padding: 2;
+}
