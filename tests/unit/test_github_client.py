@@ -121,10 +121,18 @@ class TestGitHubClient:
     @responses.activate
     def test_get_user_repos(self, mock_github_token, sample_user_repos):
         """Test getting user repositories."""
+        # Page 1 returns data
         responses.add(
             responses.GET,
             "https://api.github.com/users/testuser/repos",
             json=sample_user_repos,
+            status=200,
+        )
+        # Page 2 returns empty to stop pagination
+        responses.add(
+            responses.GET,
+            "https://api.github.com/users/testuser/repos",
+            json=[],
             status=200,
         )
 
@@ -178,8 +186,16 @@ class TestGitHubClient:
         # Page 2
         responses.add(
             responses.GET,
-            "https://api.github.com/users/testuser/repos?page=2",
+            "https://api.github.com/users/testuser/repos",
             json=[{"name": "repo3"}],
+            status=200,
+        )
+
+        # Page 3 returns empty to stop pagination
+        responses.add(
+            responses.GET,
+            "https://api.github.com/users/testuser/repos",
+            json=[],
             status=200,
         )
 
@@ -355,10 +371,18 @@ class TestGitHubClient:
             }
         ]
 
+        # Page 1 returns data
         responses.add(
             responses.GET,
             "https://api.github.com/orgs/test-org/invitations",
             json=org_invitations_response,
+            status=200,
+        )
+        # Page 2 returns empty to stop pagination
+        responses.add(
+            responses.GET,
+            "https://api.github.com/orgs/test-org/invitations",
+            json=[],
             status=200,
         )
 

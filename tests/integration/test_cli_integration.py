@@ -150,13 +150,21 @@ class TestCLIIntegration:
     @responses.activate
     def test_repo_list_integration(self, mock_github_token):
         """Test repo list command integration."""
-        # Mock GitHub API response
+        # Mock user info check
+        responses.add(
+            responses.GET,
+            "https://api.github.com/users/testuser",
+            json={"login": "testuser", "type": "User"},
+            status=200,
+        )
+        # Mock GitHub API response - page 1
         responses.add(
             responses.GET,
             "https://api.github.com/users/testuser/repos",
             json=[
                 {
                     "name": "repo1",
+                    "full_name": "testuser/repo1",
                     "description": "First repo",
                     "stargazers_count": 10,
                     "forks_count": 2,
@@ -166,6 +174,7 @@ class TestCLIIntegration:
                 },
                 {
                     "name": "repo2",
+                    "full_name": "testuser/repo2",
                     "description": "Second repo",
                     "stargazers_count": 5,
                     "forks_count": 1,
@@ -174,6 +183,13 @@ class TestCLIIntegration:
                     "archived": False,
                 },
             ],
+            status=200,
+        )
+        # Mock empty page 2 to stop pagination
+        responses.add(
+            responses.GET,
+            "https://api.github.com/users/testuser/repos",
+            json=[],
             status=200,
         )
 
@@ -325,7 +341,7 @@ class TestCLIIntegration:
             status=200,
         )
 
-        # Mock contents API response
+        # Mock contents API response - page 1
         responses.add(
             responses.GET,
             "https://api.github.com/repos/testuser/test-repo/contents",
@@ -337,12 +353,26 @@ class TestCLIIntegration:
             ],
             status=200,
         )
+        # Mock contents API response - page 2 (empty to stop pagination)
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo/contents",
+            json=[],
+            status=200,
+        )
 
-        # Mock workflows API response
+        # Mock workflows API response - page 1
         responses.add(
             responses.GET,
             "https://api.github.com/repos/testuser/test-repo/actions/workflows",
             json={"workflows": [{"name": "CI", "state": "active"}]},
+            status=200,
+        )
+        # Mock workflows API response - page 2 (empty to stop pagination)
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo/actions/workflows",
+            json=[],
             status=200,
         )
 

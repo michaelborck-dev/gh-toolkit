@@ -19,6 +19,11 @@ class GitHubAPIError(Exception):
         self.status_code = status_code
         super().__init__(self.message)
 
+    def __str__(self) -> str:
+        if self.status_code:
+            return f"GitHub API Error ({self.status_code}): {self.message}"
+        return f"GitHub API Error: {self.message}"
+
 
 class GitHubClient:
     """GitHub API client with rate limiting and error handling."""
