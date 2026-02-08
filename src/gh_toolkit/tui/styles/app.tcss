@@ -135,3 +135,59 @@ ListView > ListItem.--highlight {
     content-align: center middle;
     padding: 2;
 }
+
+/* Preview screen */
+.options-bar {
+    height: 3;
+    padding: 0 1;
+    border-bottom: solid $primary;
+    color: $text-muted;
+}
+
+#preview-scroll {
+    height: 100%;
+    border: solid $primary;
+}
+
+.preview-content {
+    padding: 1 2;
+}
+
+/* Audit screen */
+.audit-summary {
+    height: 3;
+    padding: 0 1;
+    border-bottom: solid $primary;
+}
+
+#audit-scroll {
+    height: 100%;
+    padding: 0 1;
+}
+
+.audit-section-header {
+    text-style: bold;
+    padding: 1 0;
+    color: $text;
+}
+
+.audit-list {
+    height: auto;
+    max-height: 50%;
+    border: solid $primary;
+    margin-bottom: 1;
+}
+
+.audit-list:focus {
+    border: solid $secondary;
+}
+
+/* Health check results */
+#repo-scroll {
+    height: 100%;
+}
+
+.health-results {
+    padding: 1 0;
+    color: $text;
+}

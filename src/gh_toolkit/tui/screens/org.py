@@ -46,6 +46,8 @@ class OrgScreen(Screen[None]):
         Binding("enter", "select_repo", "Select"),
         Binding("escape", "go_back", "Back"),
         Binding("s", "cycle_sort", "Sort"),
+        Binding("g", "generate_readme", "README"),
+        Binding("a", "audit", "Audit"),
         Binding("r", "refresh", "Refresh"),
     ]
 
@@ -156,3 +158,19 @@ class OrgScreen(Screen[None]):
         # Clear cache for this org
         self.app.clear_org_cache(self.org_name)
         self.load_repositories()
+
+    def action_generate_readme(self) -> None:
+        """Generate README for this organization."""
+        from gh_toolkit.tui.screens.preview import PreviewScreen
+
+        self.app.push_screen(PreviewScreen(self.org_name, self.org_data))
+
+    def action_audit(self) -> None:
+        """Audit repositories in this organization."""
+        from gh_toolkit.tui.screens.audit import AuditScreen
+
+        if not self._repos:
+            self.app.notify("No repositories to audit", severity="warning", timeout=2)
+            return
+
+        self.app.push_screen(AuditScreen(self.org_name, self._repos))
