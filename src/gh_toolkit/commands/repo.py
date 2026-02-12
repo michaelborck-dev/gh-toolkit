@@ -1223,6 +1223,19 @@ def get_badge_color(topic: str) -> str:
     return BADGE_COLORS.get(topic, BADGE_COLORS["default"])
 
 
+def escape_shields_io(text: str) -> str:
+    """Escape text for shields.io badge URLs.
+
+    Shields.io has special character handling:
+    - Hyphens must be doubled: - → --
+    - Underscores must be doubled: _ → __
+    - Spaces can be represented by _ or %20
+    """
+    # Order matters: escape hyphens and underscores
+    escaped = text.replace("-", "--").replace("_", "__")
+    return escaped
+
+
 def generate_badge_markdown(
     topic: str, style: str = "flat-square", link: bool = True
 ) -> str:
@@ -1237,8 +1250,9 @@ def generate_badge_markdown(
         Markdown string for the badge
     """
     color = get_badge_color(topic)
-    # URL encode the topic for the badge
-    badge_url = f"https://img.shields.io/badge/-{topic}-{color}?style={style}"
+    # Escape the topic for shields.io URL format
+    escaped_topic = escape_shields_io(topic)
+    badge_url = f"https://img.shields.io/badge/-{escaped_topic}-{color}?style={style}"
 
     if link:
         topic_url = f"https://github.com/topics/{topic}"
