@@ -524,6 +524,69 @@ class GitHubClient:
         except GitHubAPIError:
             return False
 
+    def get_file_contents(
+        self, owner: str, repo: str, path: str, ref: str | None = None
+    ) -> dict[str, Any] | None:
+        """Get file contents from repository.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            path: Path to file in repository
+            ref: Branch, tag, or commit SHA (defaults to default branch)
+
+        Returns:
+            File contents dict with 'content', 'sha', 'encoding', etc. or None if not found
+        """
+        endpoint = f"/repos/{owner}/{repo}/contents/{path}"
+        params = {"ref": ref} if ref else {}
+        try:
+            response = self._make_request("GET", endpoint, params=params)
+            return response.json()
+        except GitHubAPIError:
+            return None
+
+    def update_file_contents(
+        self,
+        owner: str,
+        repo: str,
+        path: str,
+        content: str,
+        message: str,
+        sha: str,
+        branch: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Update file contents in repository.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            path: Path to file in repository
+            content: New file content (will be base64 encoded)
+            message: Commit message
+            sha: SHA of the file being replaced (from get_file_contents)
+            branch: Branch to update (defaults to default branch)
+
+        Returns:
+            Commit response or None if failed
+        """
+        import base64
+
+        endpoint = f"/repos/{owner}/{repo}/contents/{path}"
+        data: dict[str, Any] = {
+            "message": message,
+            "content": base64.b64encode(content.encode()).decode(),
+            "sha": sha,
+        }
+        if branch:
+            data["branch"] = branch
+
+        try:
+            response = self._make_request("PUT", endpoint, json_data=data)
+            return response.json()
+        except GitHubAPIError:
+            return None
+
     def get_org_info(self, org_name: str) -> dict[str, Any]:
         """Get detailed information about an organization.
 
