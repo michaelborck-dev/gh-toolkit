@@ -43,6 +43,10 @@ This directory contains detailed documentation for each command and subcommand i
 | `site generate` | Create portfolio sites | 4 themes, responsive design |
 | `page generate` | Create landing pages | HTML/Jekyll output, README conversion |
 
+## Comparison & Reference
+
+- [gh-toolkit vs GitHub CLI](gh-cli-comparison.md) - When to use `gh-toolkit` vs the official `gh` CLI
+
 ## Design Documentation
 
 - [Design Documents](design/) - Architectural plans and future enhancement proposals

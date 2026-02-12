@@ -19,6 +19,31 @@ A comprehensive command-line tool for managing GitHub repository portfolios at s
 - 🎯 **Academic Workflow** - Perfect alternative to GitHub Classroom
 - ⚡ **Modern CLI** - Built with typer and rich for beautiful terminal experience
 
+## gh-toolkit vs GitHub CLI (`gh`)
+
+`gh-toolkit` complements the official [GitHub CLI (`gh`)](https://cli.github.com/) rather than replacing it.
+
+| Use `gh` for | Use `gh-toolkit` for |
+|--------------|----------------------|
+| Pull requests & issues | Portfolio site generation |
+| GitHub Actions workflows | Bulk repository operations |
+| Releases & gists | AI-powered categorization |
+| Codespaces & projects | Repository health auditing |
+| Single-repo operations | Cross-org portfolio management |
+| Raw API access | Academic/educator workflows |
+
+**They work great together:**
+```bash
+# Daily work with gh
+gh pr create --fill && gh run watch
+
+# Portfolio presentation with gh-toolkit
+gh-toolkit repo extract my-repos.txt --output data.json
+gh-toolkit site generate data.json --theme resume
+```
+
+See [docs/gh-cli-comparison.md](docs/gh-cli-comparison.md) for a detailed feature comparison.
+
 ## 🚀 Quick Start
 
 ### Installation
