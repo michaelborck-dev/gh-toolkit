@@ -20,6 +20,7 @@ A comprehensive command-line tool for managing GitHub repository portfolios at s
 - 📧 **Invitation Management** - Bulk accept/leave repository collaborations
 - 🏢 **Organization READMEs** - Generate and push org profile READMEs directly to GitHub
 - 🎯 **Academic Workflow** - Perfect alternative to GitHub Classroom
+- 🖥️ **Interactive TUI** - Full-featured terminal UI for visual repository management
 - ⚡ **Modern CLI** - Built with typer and rich for beautiful terminal experience
 
 ## gh-toolkit vs GitHub CLI (`gh`)
@@ -175,6 +176,58 @@ gh-toolkit invite accept --dry-run
 gh-toolkit invite leave --confirm
 ```
 
+## 🖥️ Terminal UI (TUI)
+
+gh-toolkit includes a full-featured terminal user interface for visual repository management.
+
+### Installation
+
+```bash
+# Install with TUI support
+pip install gh-toolkit[tui]
+```
+
+### Launch
+
+```bash
+gh-toolkit tui
+```
+
+### Features
+
+- **Browse Organizations** - Navigate your GitHub organizations visually
+- **Search & Filter** - Press `/` to search repos by name or description
+- **Multi-Select** - Use `Space` to select multiple repos, `Ctrl+A` to select all
+- **Bulk Actions** - Press `a` to open the action modal for selected repos
+- **Context-Aware** - Actions apply to selected items or all visible items
+
+### Keybindings
+
+| Key | Action |
+|-----|--------|
+| `?` | Show help |
+| `a` | Open actions menu |
+| `/` | Search/filter |
+| `Space` | Toggle selection |
+| `Ctrl+A` | Select all |
+| `Ctrl+D` | Deselect all |
+| `Enter` | View/drill down |
+| `Esc` | Back/cancel |
+| `s` | Cycle sort (in org view) |
+| `g` | Generate README (in org view) |
+
+### Actions Menu
+
+The TUI provides form-based action selection:
+
+- **Generate Descriptions** - AI-powered descriptions with model selection
+- **Add Topics** - Intelligent tagging with preferred tag support
+- **Generate Badges** - Create shields.io badges with style options
+- **Health Check** - Audit repository quality
+- **Audit** - Find missing metadata
+
+All actions support dry-run mode for safe previewing.
+
 ## 🎨 Portfolio Themes
 
 ### Educational Theme
@@ -269,6 +322,10 @@ src/gh_toolkit/
 │   ├── site.py           # Site generation
 │   ├── tag.py            # Topic tagging
 │   └── invite.py         # Invitation management
+├── tui/                   # Terminal UI (optional)
+│   ├── app.py            # Main TUI application
+│   ├── screens/          # TUI screens (home, org, repo, help)
+│   └── widgets/          # Reusable widgets (action modal, etc.)
 └── core/                  # Core functionality
     ├── github_client.py   # GitHub API client
     ├── repo_extractor.py  # Data extraction
