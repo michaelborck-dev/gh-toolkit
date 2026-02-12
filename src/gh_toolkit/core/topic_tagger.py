@@ -13,11 +13,15 @@ console = Console()
 class TopicTagger:
     """Automatically add relevant topic tags to GitHub repositories using LLM analysis."""
 
+    DEFAULT_MODEL = "claude-3-haiku-20240307"
+
     def __init__(
         self,
         github_client: GitHubClient,
         anthropic_api_key: str | None = None,
         rate_limit: float = 0.5,
+        model: str | None = None,
+        preferred_tags: str | None = None,
     ):
         """Initialize with GitHub client and optional Anthropic API key.
 
@@ -25,10 +29,14 @@ class TopicTagger:
             github_client: Authenticated GitHub client
             anthropic_api_key: Optional Anthropic API key for LLM features
             rate_limit: Seconds to wait between API requests (default: 0.5)
+            model: Anthropic model to use (default: claude-3-haiku-20240307)
+            preferred_tags: Optional string describing preferred tags to consider
         """
         self.client = github_client
         self.anthropic_api_key = anthropic_api_key
         self.rate_limit = rate_limit
+        self.model = model or self.DEFAULT_MODEL
+        self.preferred_tags = preferred_tags
 
         if anthropic_api_key:
             try:
@@ -85,12 +93,21 @@ Provide only the topic tags as a comma-separated list, nothing else. Focus on:
 - Problem domain/use case
 - Project type (e.g., cli-tool, web-app, library)
 - Key features or technologies
+"""
 
-Topics:"""
+        # Add preferred tags context if provided
+        if self.preferred_tags:
+            prompt += f"""
+IMPORTANT: Consider using these preferred tags when applicable:
+{self.preferred_tags}
+
+"""
+
+        prompt += "Topics:"
 
         try:
             response = self._anthropic_client.messages.create(
-                model="claude-3-haiku-20240307",
+                model=self.model,
                 max_tokens=200,
                 temperature=0.7,
                 messages=[{"role": "user", "content": prompt}],

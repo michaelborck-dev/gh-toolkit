@@ -13,11 +13,14 @@ console = Console()
 class DescriptionGenerator:
     """Generate and update GitHub repository descriptions using LLM analysis."""
 
+    DEFAULT_MODEL = "claude-3-haiku-20240307"
+
     def __init__(
         self,
         github_client: GitHubClient,
         anthropic_api_key: str | None = None,
         rate_limit: float = 0.5,
+        model: str | None = None,
     ):
         """Initialize with GitHub client and optional Anthropic API key.
 
@@ -25,10 +28,12 @@ class DescriptionGenerator:
             github_client: Authenticated GitHub client
             anthropic_api_key: Optional Anthropic API key for LLM features
             rate_limit: Seconds to wait between API requests (default: 0.5)
+            model: Anthropic model to use (default: claude-3-haiku-20240307)
         """
         self.client = github_client
         self.anthropic_api_key = anthropic_api_key
         self.rate_limit = rate_limit
+        self.model = model or self.DEFAULT_MODEL
 
         if anthropic_api_key:
             try:
@@ -119,7 +124,7 @@ Only output the description, nothing else.
 
         try:
             response = self._anthropic_client.messages.create(
-                model="claude-3-haiku-20240307",
+                model=self.model,
                 max_tokens=150,
                 temperature=0.3,
                 messages=[{"role": "user", "content": prompt}],

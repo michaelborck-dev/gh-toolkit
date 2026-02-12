@@ -950,6 +950,12 @@ def describe_repos(
         "--anthropic-key",
         help="Anthropic API key for LLM generation (or set ANTHROPIC_API_KEY env var)",
     ),
+    model: str = typer.Option(
+        "claude-3-haiku-20240307",
+        "--model",
+        "-m",
+        help="Anthropic model to use (e.g., claude-sonnet-4-20250514, claude-3-haiku-20240307)",
+    ),
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
@@ -1001,7 +1007,7 @@ def describe_repos(
 
         # Initialize clients
         client = GitHubClient(github_token)
-        generator = DescriptionGenerator(client, anthropic_api_key, rate_limit)
+        generator = DescriptionGenerator(client, anthropic_api_key, rate_limit, model)
 
         # Parse repository input
         repo_list = _parse_describe_repos_input(repos_input, client)
@@ -1014,6 +1020,7 @@ def describe_repos(
         console.print(
             f"\n[blue]Found {len(repo_list)} repositories to process[/blue]"
         )
+        console.print(f"[blue]Using model: {model}[/blue]")
         if dry_run:
             console.print("[yellow]DRY RUN MODE - No changes will be made[/yellow]")
         if force:

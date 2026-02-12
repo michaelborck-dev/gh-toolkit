@@ -27,6 +27,17 @@ def tag_repos(
         "--anthropic-key",
         help="Anthropic API key for LLM tagging (or set ANTHROPIC_API_KEY env var)",
     ),
+    model: str = typer.Option(
+        "claude-3-haiku-20240307",
+        "--model",
+        "-m",
+        help="Anthropic model to use (e.g., claude-sonnet-4-20250514)",
+    ),
+    tags: str | None = typer.Option(
+        None,
+        "--tags",
+        help="Preferred tags to consider (e.g., 'edtech: Educational tools, curtin: Curtin materials')",
+    ),
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
@@ -81,7 +92,7 @@ def tag_repos(
 
         # Initialize clients
         client = GitHubClient(github_token)
-        tagger = TopicTagger(client, anthropic_api_key, rate_limit)
+        tagger = TopicTagger(client, anthropic_api_key, rate_limit, model, tags)
 
         # Parse repository input
         repo_list = _parse_repos_input(repos_input, client)
@@ -92,17 +103,20 @@ def tag_repos(
 
         # Show what we're about to do
         console.print(
-            f"\n[blue]📋 Found {len(repo_list)} repositories to process[/blue]"
+            f"\n[blue]Found {len(repo_list)} repositories to process[/blue]"
         )
+        console.print(f"[blue]Using model: {model}[/blue]")
+        if tags:
+            console.print(f"[blue]Preferred tags: {tags[:80]}...[/blue]" if len(tags) > 80 else f"[blue]Preferred tags: {tags}[/blue]")
         if dry_run:
-            console.print("[yellow]🔍 DRY RUN MODE - No changes will be made[/yellow]")
+            console.print("[yellow]DRY RUN MODE - No changes will be made[/yellow]")
         if force:
             console.print(
-                "[yellow] FORCE MODE - Will update repositories that already have topics[/yellow]"
+                "[yellow]FORCE MODE - Will update repositories that already have topics[/yellow]"
             )
         if add_description:
             console.print(
-                "[blue] ADD DESCRIPTION - Will generate descriptions for repos without one[/blue]"
+                "[blue]ADD DESCRIPTION - Will generate descriptions for repos without one[/blue]"
             )
 
         # Process repositories
