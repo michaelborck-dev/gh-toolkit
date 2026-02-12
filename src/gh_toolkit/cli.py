@@ -17,6 +17,7 @@ from gh_toolkit.commands.repo import (
     extract_repos,
     generate_badges,
     health_check,
+    license_repos,
     list_repos,
     readme_repos,
 )
@@ -108,6 +109,7 @@ repo_app.command("extract")(extract_repos)
 repo_app.command("tag")(tag_repos)
 repo_app.command("describe")(describe_repos)
 repo_app.command("readme")(readme_repos)
+repo_app.command("license")(license_repos)
 repo_app.command("badges")(generate_badges)
 repo_app.command("health")(health_check)
 repo_app.command("clone")(clone_repos)

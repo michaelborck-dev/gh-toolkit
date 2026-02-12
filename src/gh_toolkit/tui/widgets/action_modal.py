@@ -59,6 +59,10 @@ class ActionOptions:
     readme_force: bool = False
     readme_min_quality: float = 0.5
 
+    # License options
+    license_type: str = "mit"
+    license_force: bool = False
+
     # Selected actions
     actions: list[str] = field(default_factory=list)
 
@@ -101,6 +105,7 @@ class ActionModal(ModalScreen[ActionResult | None]):
                 Static("[bold]Select Actions[/bold]", classes="section-header", markup=True),
                 Checkbox("Generate Descriptions", id="action-describe"),
                 Checkbox("Generate README", id="action-readme"),
+                Checkbox("Add License", id="action-license"),
                 Checkbox("Add Topics", id="action-tag"),
                 Checkbox("Generate Badges", id="action-badges"),
                 Checkbox("Health Check", id="action-health"),
@@ -188,6 +193,22 @@ class ActionModal(ModalScreen[ActionResult | None]):
                 ),
                 Checkbox("Force update all READMEs", id="readme-force", classes="hidden-option"),
 
+                # License options
+                Static("[bold]License Options[/bold]", id="license-section", classes="section-header hidden", markup=True),
+                Horizontal(
+                    Label("License:", classes="field-label"),
+                    RadioSet(
+                        RadioButton("MIT", id="license-mit", value=True),
+                        RadioButton("Apache 2.0", id="license-apache"),
+                        RadioButton("GPL 3.0", id="license-gpl"),
+                        RadioButton("BSD 3-Clause", id="license-bsd"),
+                        id="license-type",
+                        classes="style-select",
+                    ),
+                    classes="field-row",
+                ),
+                Checkbox("Replace existing licenses", id="license-force", classes="hidden-option"),
+
                 id="action-scroll",
                 classes="action-form",
             ),
@@ -213,6 +234,7 @@ class ActionModal(ModalScreen[ActionResult | None]):
         section_map = {
             "action-describe": ["describe-section", "describe-force"],
             "action-readme": ["readme-section", "readme-force"],
+            "action-license": ["license-section", "license-force"],
             "action-tag": ["tag-section", "tag-force"],
             "action-badges": ["badges-section", "badges-apply"],
             "action-health": ["health-section"],
@@ -266,6 +288,7 @@ class ActionModal(ModalScreen[ActionResult | None]):
         action_checkboxes = [
             ("action-describe", "describe"),
             ("action-readme", "readme"),
+            ("action-license", "license"),
             ("action-tag", "tag"),
             ("action-badges", "badges"),
             ("action-health", "health"),
@@ -336,6 +359,24 @@ class ActionModal(ModalScreen[ActionResult | None]):
             pass
         return "default"
 
+    def _get_license_type(self) -> str:
+        """Get the selected license type."""
+        license_map = {
+            "license-mit": "mit",
+            "license-apache": "apache-2.0",
+            "license-gpl": "gpl-3.0",
+            "license-bsd": "bsd-3-clause",
+        }
+        try:
+            radio_set = self.query_one("#license-type", RadioSet)
+            if radio_set.pressed_button:
+                button_id = radio_set.pressed_button.id
+                if button_id:
+                    return license_map.get(button_id, "mit")
+        except Exception:
+            pass
+        return "mit"
+
     def _execute_actions(self) -> None:
         """Gather options and execute selected actions."""
         actions = self._get_selected_actions()
@@ -392,6 +433,14 @@ class ActionModal(ModalScreen[ActionResult | None]):
                 options["readme_force"] = self.query_one("#readme-force", Checkbox).value
             except Exception:
                 options["readme_force"] = False
+
+        # License options
+        if "license" in actions:
+            options["license_type"] = self._get_license_type()
+            try:
+                options["license_force"] = self.query_one("#license-force", Checkbox).value
+            except Exception:
+                options["license_force"] = False
 
         # Create result with first action (we'll handle multiple actions in executor)
         result = ActionResult(

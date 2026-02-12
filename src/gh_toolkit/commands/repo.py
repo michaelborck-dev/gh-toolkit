@@ -1781,3 +1781,245 @@ def _update_tags_for_repos(
                 console.print(f"[yellow]  {result.get('status', 'unknown')}[/yellow]")
         except Exception as e:
             console.print(f"[red]  ✗ Failed: {e}[/red]")
+
+
+def license_repos(
+    repos_input: str | None = typer.Argument(
+        None,
+        help="Repository (owner/repo), file with repo list, or 'username/*' for all user repos"
+    ),
+    token: str | None = typer.Option(
+        None, "--token", "-t", help="GitHub token (or set GITHUB_TOKEN env var)"
+    ),
+    license_type: str = typer.Option(
+        "mit",
+        "--license",
+        "-l",
+        help="License type (mit, apache-2.0, gpl-3.0, bsd-3-clause, unlicense, etc.)",
+    ),
+    name: str | None = typer.Option(
+        None,
+        "--name",
+        "-n",
+        help="Copyright holder name (defaults to repository owner)",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Preview changes without adding licenses",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Replace existing license files",
+    ),
+    list_licenses: bool = typer.Option(
+        False,
+        "--list",
+        help="List available license types and exit",
+    ),
+    rate_limit: float = typer.Option(
+        0.5,
+        "--rate-limit",
+        "-r",
+        help="Seconds between API requests (default: 0.5)",
+    ),
+    output: str | None = typer.Option(
+        None, "--output", "-o", help="Save results to JSON file"
+    ),
+) -> None:
+    """Add license files to GitHub repositories.
+
+    Adds a LICENSE file to repositories that don't have one. Supports all
+    standard licenses available on GitHub including MIT, Apache 2.0, GPL, etc.
+
+    Common license types:
+        mit          - MIT License (simple, permissive) [DEFAULT]
+        apache-2.0   - Apache 2.0 (permissive with patent protection)
+        gpl-3.0      - GPL 3.0 (copyleft, requires source disclosure)
+        bsd-3-clause - BSD 3-Clause (permissive with attribution)
+        unlicense    - Public domain dedication
+
+    Examples:
+        gh-toolkit repo license user/repo --dry-run
+        gh-toolkit repo license "user/*" --license mit --name "John Doe"
+        gh-toolkit repo license repos.txt --license apache-2.0 --force
+        gh-toolkit repo license --list
+    """
+    from gh_toolkit.core.license_manager import COMMON_LICENSES, LicenseManager
+
+    # Handle --list option
+    if list_licenses:
+        console.print("\n[bold]Available Licenses:[/bold]\n")
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Key")
+        table.add_column("Description")
+
+        for key, desc in COMMON_LICENSES.items():
+            if key == "mit":
+                table.add_row(f"[green]{key}[/green]", f"{desc} [dim](default)[/dim]")
+            else:
+                table.add_row(key, desc)
+
+        console.print(table)
+        console.print("\n[dim]Use any GitHub license key (see: https://choosealicense.com)[/dim]")
+        return
+
+    # Require repos_input if not listing
+    if not repos_input:
+        console.print("[red]Error: REPOS_INPUT is required (use --list to see available licenses)[/red]")
+        raise typer.Exit(1)
+
+    try:
+        # Get token
+        github_token = token or os.environ.get("GITHUB_TOKEN")
+        if not github_token:
+            console.print(
+                "[red]GitHub token required. Set GITHUB_TOKEN env var or use --token[/red]"
+            )
+            raise typer.Exit(1)
+
+        client = GitHubClient(github_token)
+        manager = LicenseManager(client, rate_limit)
+
+        # Parse repository input
+        repo_list = _parse_license_repos_input(repos_input, client)
+
+        if not repo_list:
+            console.print("[red]No repositories found to process[/red]")
+            raise typer.Exit(1)
+
+        console.print(f"\n[blue]Found {len(repo_list)} repositories to process[/blue]")
+        console.print(f"[blue]License: {license_type.upper()}[/blue]")
+        if name:
+            console.print(f"[blue]Copyright holder: {name}[/blue]")
+
+        if dry_run:
+            console.print("[yellow]DRY RUN MODE - No changes will be made[/yellow]")
+        if force:
+            console.print("[yellow]FORCE MODE - Will replace existing licenses[/yellow]")
+
+        # Process repositories
+        results = manager.process_multiple_repositories(
+            repo_list, license_type, name, dry_run, force
+        )
+
+        # Show summary
+        _show_license_summary(results, dry_run)
+
+        # Save results if requested
+        if output:
+            _save_license_results(results, output)
+
+    except KeyboardInterrupt as e:
+        console.print("\n[yellow]Operation cancelled by user[/yellow]")
+        raise typer.Exit(1) from e
+    except Exception as e:
+        console.print(f"[red]Unexpected error: {e}[/red]")
+        raise typer.Exit(1) from e
+
+
+def _parse_license_repos_input(
+    repos_input: str, client: GitHubClient
+) -> list[tuple[str, str]]:
+    """Parse repository input and return list of (owner, repo) tuples."""
+    repos: list[tuple[str, str]] = []
+
+    # Check if it's a file
+    if Path(repos_input).exists():
+        console.print(f"[blue]Loading repositories from file: {repos_input}[/blue]")
+        with open(repos_input, encoding="utf-8") as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    try:
+                        parts = line.split("/")
+                        if len(parts) == 2:
+                            repos.append((parts[0], parts[1]))
+                        else:
+                            console.print(f"[yellow]Line {line_num}: Invalid format[/yellow]")
+                    except Exception as e:
+                        console.print(f"[yellow]Line {line_num}: {e}[/yellow]")
+        return repos
+
+    # Check if it's a wildcard pattern (user/*)
+    if repos_input.endswith("/*"):
+        owner = repos_input[:-2]
+        console.print(f"[blue]Fetching all repositories for user/org: {owner}[/blue]")
+        try:
+            # Check if owner is the authenticated user - if so, include private repos
+            authenticated_user = client.get_authenticated_user()
+            if authenticated_user and authenticated_user.lower() == owner.lower():
+                console.print("[dim]Including private repositories[/dim]")
+                user_repos = client.get_user_repos(
+                    None, visibility="all", affiliation="owner"
+                )
+            else:
+                user_repos = client.get_user_repos(owner)
+            repos = [(owner, repo["name"]) for repo in user_repos]
+            console.print(f"[green]Found {len(repos)} repositories for {owner}[/green]")
+            return repos
+        except Exception as e:
+            console.print(f"[red]Error fetching repositories for {owner}: {e}[/red]")
+            return []
+
+    # Single repository
+    if "/" in repos_input:
+        parts = repos_input.split("/")
+        if len(parts) == 2:
+            return [(parts[0], parts[1])]
+
+    console.print(f"[red]Invalid input format: {repos_input}[/red]")
+    return []
+
+
+def _show_license_summary(results: list[dict[str, Any]], dry_run: bool) -> None:
+    """Display summary of license processing results."""
+    created = sum(1 for r in results if r["status"] == "created")
+    updated = sum(1 for r in results if r["status"] == "updated")
+    would_add = sum(1 for r in results if r["status"] == "dry_run")
+    skipped = sum(1 for r in results if r["status"] == "skipped")
+    failed = sum(1 for r in results if r["status"] == "error")
+
+    console.print("\n[bold]SUMMARY[/bold]")
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Status")
+    table.add_column("Count")
+    table.add_column("Description")
+
+    if dry_run:
+        table.add_row("Would Add", str(would_add), "Licenses that would be added")
+    else:
+        table.add_row("Created", str(created), "New licenses added")
+        table.add_row("Updated", str(updated), "Existing licenses replaced")
+
+    table.add_row("Skipped", str(skipped), "Already has license")
+    table.add_row("Failed", str(failed), "Failed to process")
+    table.add_row("Total", str(len(results)), "Repositories processed")
+
+    console.print(table)
+
+    # Show failed repos
+    failed_repos = [r for r in results if r["status"] == "error"]
+    if failed_repos:
+        console.print("\n[red]Failed repositories:[/red]")
+        for r in failed_repos:
+            reason = r.get("reason", "Unknown error")
+            console.print(f"  - {r['owner']}/{r['repo']}: {reason}")
+
+
+def _save_license_results(results: list[dict[str, Any]], output_path: str) -> None:
+    """Save license processing results to JSON file."""
+    import json
+
+    # Remove content preview from saved results
+    save_results = []
+    for r in results:
+        save_r = {k: v for k, v in r.items() if k != "content_preview"}
+        save_results.append(save_r)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(save_results, f, indent=2)
+
+    console.print(f"\n[green]Results saved to {output_path}[/green]")

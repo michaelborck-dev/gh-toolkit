@@ -47,6 +47,8 @@ class ActionExecutor:
                 results.append(self._execute_describe(action_result))
             elif action == "readme":
                 results.append(self._execute_readme(action_result))
+            elif action == "license":
+                results.append(self._execute_license(action_result))
             elif action == "tag":
                 results.append(self._execute_tag(action_result))
             elif action == "badges":
@@ -339,6 +341,49 @@ class ActionExecutor:
         return ExecutionResult(
             action="readme",
             success_count=success + dry_run_count,
+            error_count=errors,
+            skipped_count=skipped,
+            results=results,
+            dry_run=action_result.dry_run,
+        )
+
+    def _execute_license(self, action_result: ActionResult) -> ExecutionResult:
+        """Execute license addition."""
+        from gh_toolkit.core.github_client import GitHubClient
+
+        try:
+            from gh_toolkit.core.license_manager import LicenseManager
+        except ImportError:
+            return ExecutionResult(
+                action="license",
+                success_count=0,
+                error_count=1,
+                skipped_count=0,
+                results=[{"error": "LicenseManager not available"}],
+                dry_run=action_result.dry_run,
+            )
+
+        client = GitHubClient(self.github_token)
+        license_type = action_result.options.get("license_type", "mit")
+        manager = LicenseManager(client, 0.5)
+
+        results = manager.process_multiple_repositories(
+            action_result.repos,
+            license_type,
+            None,  # name (will default to owner)
+            action_result.dry_run,
+            action_result.options.get("license_force", False),
+        )
+
+        created = len([r for r in results if r.get("status") == "created"])
+        updated = len([r for r in results if r.get("status") == "updated"])
+        errors = len([r for r in results if r.get("status") == "error"])
+        skipped = len([r for r in results if r.get("status") == "skipped"])
+        dry_run_count = len([r for r in results if r.get("status") == "dry_run"])
+
+        return ExecutionResult(
+            action="license",
+            success_count=created + updated + dry_run_count,
             error_count=errors,
             skipped_count=skipped,
             results=results,
