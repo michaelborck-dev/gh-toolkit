@@ -15,6 +15,7 @@ from gh_toolkit.commands.repo import (
     clone_repos,
     describe_repos,
     extract_repos,
+    generate_badges,
     health_check,
     list_repos,
 )
@@ -105,6 +106,7 @@ repo_app.command("list")(list_repos)
 repo_app.command("extract")(extract_repos)
 repo_app.command("tag")(tag_repos)
 repo_app.command("describe")(describe_repos)
+repo_app.command("badges")(generate_badges)
 repo_app.command("health")(health_check)
 repo_app.command("clone")(clone_repos)
 

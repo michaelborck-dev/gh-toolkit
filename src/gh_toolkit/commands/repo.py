@@ -1175,3 +1175,199 @@ def _save_describe_results(
         json.dump(output_data, f, indent=2)
 
     console.print(f"\n[green]Results saved to: {output_file.absolute()}[/green]")
+
+
+# Badge color mapping for common topic categories
+BADGE_COLORS: dict[str, str] = {
+    # Languages
+    "python": "3776ab",
+    "javascript": "f7df1e",
+    "typescript": "3178c6",
+    "rust": "000000",
+    "go": "00add8",
+    "java": "007396",
+    "ruby": "cc342d",
+    "html": "e34f26",
+    "css": "1572b6",
+    # Categories
+    "edtech": "4caf50",
+    "curtin": "f57c00",
+    "presentation": "9c27b0",
+    "exec-ed": "673ab7",
+    "cybersecurity": "f44336",
+    "book": "795548",
+    "tool": "607d8b",
+    "resume": "00bcd4",
+    "research": "3f51b5",
+    "website": "2196f3",
+    # Frameworks/Tools
+    "react": "61dafb",
+    "docker": "2496ed",
+    "flask": "000000",
+    "django": "092e20",
+    "fastapi": "009688",
+    "electron": "47848f",
+    "tauri": "ffc131",
+    # AI/ML
+    "ai": "ff6f00",
+    "machine-learning": "ff6f00",
+    "llm": "ff6f00",
+    "openai": "412991",
+    # Default
+    "default": "blue",
+}
+
+
+def get_badge_color(topic: str) -> str:
+    """Get the color for a topic badge."""
+    return BADGE_COLORS.get(topic, BADGE_COLORS["default"])
+
+
+def generate_badge_markdown(
+    topic: str, style: str = "flat-square", link: bool = True
+) -> str:
+    """Generate markdown for a single topic badge.
+
+    Args:
+        topic: The topic name
+        style: Badge style (flat, flat-square, plastic, for-the-badge)
+        link: Whether to link to GitHub topic search
+
+    Returns:
+        Markdown string for the badge
+    """
+    color = get_badge_color(topic)
+    # URL encode the topic for the badge
+    badge_url = f"https://img.shields.io/badge/-{topic}-{color}?style={style}"
+
+    if link:
+        topic_url = f"https://github.com/topics/{topic}"
+        return f"[![{topic}]({badge_url})]({topic_url})"
+    else:
+        return f"![{topic}]({badge_url})"
+
+
+def generate_badges(
+    repos_input: str = typer.Argument(
+        help="Repository (owner/repo) or 'username/*' for all user repos"
+    ),
+    token: str | None = typer.Option(
+        None, "--token", "-t", help="GitHub token (or set GITHUB_TOKEN env var)"
+    ),
+    style: str = typer.Option(
+        "flat-square",
+        "--style",
+        "-s",
+        help="Badge style: flat, flat-square, plastic, for-the-badge",
+    ),
+    max_badges: int = typer.Option(
+        10, "--max", "-n", help="Maximum number of badges to generate"
+    ),
+    no_link: bool = typer.Option(
+        False, "--no-link", help="Don't link badges to GitHub topic search"
+    ),
+    output: str | None = typer.Option(
+        None, "--output", "-o", help="Save badge markdown to file"
+    ),
+    clipboard: bool = typer.Option(
+        False, "--clipboard", "-c", help="Copy badge markdown to clipboard"
+    ),
+) -> None:
+    """Generate topic badge markdown for repository READMEs.
+
+    Creates shields.io badge markdown based on repository topics.
+    Badges are colored by category and link to GitHub topic search.
+
+    Examples:
+        gh-toolkit repo badges user/repo
+        gh-toolkit repo badges user/repo --style for-the-badge
+        gh-toolkit repo badges user/repo --clipboard
+        gh-toolkit repo badges "michael-borck/*" --output badges.md
+    """
+    try:
+        # Get token
+        github_token = token or os.environ.get("GITHUB_TOKEN")
+        if not github_token:
+            console.print(
+                "[red]GitHub token required. Set GITHUB_TOKEN env var or use --token[/red]"
+            )
+            raise typer.Exit(1)
+
+        client = GitHubClient(github_token)
+
+        # Parse input
+        if repos_input.endswith("/*"):
+            # Multiple repos
+            owner = repos_input[:-2]
+            console.print(f"[blue]Fetching repositories for: {owner}[/blue]")
+            repos = client.get_user_repos(owner)
+            repo_list = [(owner, repo["name"]) for repo in repos]
+        elif "/" in repos_input:
+            # Single repo
+            parts = repos_input.split("/")
+            repo_list = [(parts[0], parts[1])]
+        else:
+            console.print("[red]Invalid input. Use owner/repo or owner/*[/red]")
+            raise typer.Exit(1)
+
+        all_badges_output: list[str] = []
+
+        for owner, repo in repo_list:
+            console.print(f"\n[blue]Processing: {owner}/{repo}[/blue]")
+
+            try:
+                # Get repo topics (returns list of strings)
+                topics = client.get_repo_topics(owner, repo)
+
+                if not topics:
+                    console.print(f"[yellow]  No topics found for {owner}/{repo}[/yellow]")
+                    continue
+
+                # Limit topics
+                topics = topics[:max_badges]
+
+                # Generate badges
+                badges = [
+                    generate_badge_markdown(topic, style, not no_link)
+                    for topic in topics
+                ]
+                badge_line = " ".join(badges)
+
+                # Display
+                console.print(f"[green]  Topics: {', '.join(topics)}[/green]")
+                console.print(f"\n[dim]Markdown:[/dim]")
+                # Use markup=False to avoid rich interpreting markdown brackets
+                console.print(badge_line, markup=False)
+
+                # Collect for output
+                all_badges_output.append(f"## {owner}/{repo}\n\n{badge_line}\n")
+
+            except GitHubAPIError as e:
+                console.print(f"[red]  Error: {e.message}[/red]")
+
+        # Handle output options
+        combined_output = "\n".join(all_badges_output)
+
+        if output:
+            output_path = Path(output)
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(combined_output)
+            console.print(f"\n[green]Saved to: {output_path.absolute()}[/green]")
+
+        if clipboard:
+            try:
+                import subprocess
+                process = subprocess.Popen(
+                    ["pbcopy"], stdin=subprocess.PIPE, text=True
+                )
+                process.communicate(input=combined_output)
+                console.print("\n[green]Copied to clipboard![/green]")
+            except Exception as e:
+                console.print(f"\n[yellow]Could not copy to clipboard: {e}[/yellow]")
+
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Operation cancelled[/yellow]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
