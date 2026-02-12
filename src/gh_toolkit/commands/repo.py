@@ -417,7 +417,7 @@ def health_check(
         client = GitHubClient(github_token)
         checker = RepositoryHealthChecker(client, rules)
 
-        # Determine if input is a file or single repo
+        # Determine if input is a file, wildcard pattern, or single repo
         repo_list: list[str] = []
         input_path = Path(repos_input)
 
@@ -433,6 +433,21 @@ def health_check(
             except Exception as e:
                 console.print(f"[red]Error reading file {input_path}: {e}[/red]")
                 raise typer.Exit(1) from e
+        elif repos_input.endswith("/*"):
+            # Wildcard pattern: fetch all repos for user/org
+            owner = repos_input[:-2]
+            console.print(f"[blue]🔍 Fetching all repositories for user/org: {owner}[/blue]")
+
+            # Check if this is the authenticated user (to include private repos)
+            authenticated_user = client.get_authenticated_user()
+            if authenticated_user and authenticated_user.lower() == owner.lower():
+                console.print("[dim]Including private repositories[/dim]")
+                user_repos = client.get_user_repos(None, visibility="all", affiliation="owner")
+            else:
+                user_repos = client.get_user_repos(owner)
+
+            repo_list = [f"{owner}/{r['name']}" for r in user_repos]
+            console.print(f"[green]✓ Found {len(repo_list)} repositories for {owner}[/green]\n")
         else:
             # Single repository
             if "/" not in repos_input:

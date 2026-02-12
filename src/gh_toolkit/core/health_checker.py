@@ -129,8 +129,13 @@ class RepositoryHealthChecker:
             repo_data["readme_size"] = 0
 
         # Get repository contents for structure analysis
+        # Note: Using _make_request directly instead of get_paginated to avoid
+        # progress bar issues; root contents are rarely paginated anyway
         try:
-            contents = self.client.get_paginated(f"/repos/{owner}/{repo}/contents")
+            response = self.client._make_request(
+                "GET", f"/repos/{owner}/{repo}/contents"
+            )
+            contents = response.json()
             repo_data["root_files"] = [
                 item["name"] for item in contents if item["type"] == "file"
             ]
@@ -142,11 +147,14 @@ class RepositoryHealthChecker:
             repo_data["root_dirs"] = []
 
         # Get workflow files for CI/CD analysis
+        # Note: /actions/workflows returns {"total_count": N, "workflows": [...]}
+        # not a list, so we can't use get_paginated
         try:
-            workflows_response = self.client.get_paginated(
-                f"/repos/{owner}/{repo}/actions/workflows"
+            response = self.client._make_request(
+                "GET", f"/repos/{owner}/{repo}/actions/workflows"
             )
-            repo_data["workflows"] = workflows_response
+            workflows_data = response.json()
+            repo_data["workflows"] = workflows_data.get("workflows", [])
         except Exception:
             repo_data["workflows"] = []
 
@@ -195,7 +203,7 @@ class RepositoryHealthChecker:
             )
 
         # Description check
-        has_description = bool(repo_data.get("description", "").strip())
+        has_description = bool((repo_data.get("description") or "").strip())
         checks.append(
             HealthCheck(
                 name="Repository Description",
@@ -411,7 +419,7 @@ class RepositoryHealthChecker:
         checks: list[HealthCheck] = []
 
         # Homepage URL check
-        has_homepage = bool(repo_data.get("homepage", "").strip())
+        has_homepage = bool((repo_data.get("homepage") or "").strip())
         checks.append(
             HealthCheck(
                 name="Homepage URL",
@@ -537,7 +545,7 @@ class RepositoryHealthChecker:
             score += 1.0
 
         # Language-specific organization
-        language = repo_data.get("language", "").lower()
+        language = (repo_data.get("language") or "").lower()
         if language == "python" and any(
             f in root_files for f in ["setup.py", "pyproject.toml", "requirements.txt"]
         ):
