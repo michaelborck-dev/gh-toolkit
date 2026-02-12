@@ -164,7 +164,15 @@ def _parse_repos_input(repos_input: str, client: GitHubClient) -> list[tuple[str
             f"[blue]🔍 Fetching all repositories for user/org: {owner}[/blue]"
         )
         try:
-            user_repos = client.get_user_repos(owner)
+            # Check if owner is the authenticated user - if so, include private repos
+            authenticated_user = client.get_authenticated_user()
+            if authenticated_user and authenticated_user.lower() == owner.lower():
+                console.print("[dim]Including private repositories[/dim]")
+                user_repos = client.get_user_repos(
+                    None, visibility="all", affiliation="owner"
+                )
+            else:
+                user_repos = client.get_user_repos(owner)
             repos = [(owner, repo["name"]) for repo in user_repos]
             console.print(
                 f"[green]✓ Found {len(repos)} repositories for {owner}[/green]"

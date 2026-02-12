@@ -47,6 +47,27 @@ class GitHubClient:
         self.base_url = "https://api.github.com"
         self.session = requests.Session()
         self.session.headers.update(self.headers)
+        self._authenticated_user: str | None = None
+
+    def get_authenticated_user(self) -> str | None:
+        """Get the username of the authenticated user.
+
+        Returns:
+            Username of authenticated user, or None if not authenticated.
+        """
+        if self._authenticated_user is not None:
+            return self._authenticated_user
+
+        if not self.token:
+            return None
+
+        try:
+            response = self._make_request("GET", "/user")
+            data = response.json()
+            self._authenticated_user = data.get("login")
+            return self._authenticated_user
+        except GitHubAPIError:
+            return None
 
     def _make_request(
         self,

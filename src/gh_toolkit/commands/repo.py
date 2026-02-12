@@ -1073,7 +1073,15 @@ def _parse_describe_repos_input(
             f"[blue]Fetching all repositories for user/org: {owner}[/blue]"
         )
         try:
-            user_repos = client.get_user_repos(owner)
+            # Check if owner is the authenticated user - if so, include private repos
+            authenticated_user = client.get_authenticated_user()
+            if authenticated_user and authenticated_user.lower() == owner.lower():
+                console.print("[dim]Including private repositories[/dim]")
+                user_repos = client.get_user_repos(
+                    None, visibility="all", affiliation="owner"
+                )
+            else:
+                user_repos = client.get_user_repos(owner)
             repos = [(owner, repo["name"]) for repo in user_repos]
             console.print(
                 f"[green]Found {len(repos)} repositories for {owner}[/green]"
@@ -1318,7 +1326,13 @@ def generate_badges(
             # Multiple repos
             owner = repos_input[:-2]
             console.print(f"[blue]Fetching repositories for: {owner}[/blue]")
-            repos = client.get_user_repos(owner)
+            # Check if owner is the authenticated user - if so, include private repos
+            authenticated_user = client.get_authenticated_user()
+            if authenticated_user and authenticated_user.lower() == owner.lower():
+                console.print("[dim]Including private repositories[/dim]")
+                repos = client.get_user_repos(None, visibility="all", affiliation="owner")
+            else:
+                repos = client.get_user_repos(owner)
             repo_list = [(owner, repo["name"]) for repo in repos]
         elif "/" in repos_input:
             # Single repo
