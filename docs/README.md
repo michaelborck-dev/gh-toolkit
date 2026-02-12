@@ -7,7 +7,9 @@ This directory contains detailed documentation for each command and subcommand i
 ### Repository Management
 - [repo list](repo-list.md) - List repositories with filters
 - [repo extract](repo-extract.md) - Extract comprehensive repository data with LLM categorization
+- [repo describe](repo-describe.md) - Generate and update repository descriptions with LLM
 - [repo tag](repo-tag.md) - Add intelligent topic tags to repositories
+- [repo badges](repo-badges.md) - Generate topic badge markdown for READMEs
 - [repo health](repo-health.md) - Check repository health and best practices compliance
 - [repo clone](repo-clone.md) - Clone repositories with smart organization and parallel processing
 
@@ -32,14 +34,16 @@ This directory contains detailed documentation for each command and subcommand i
 |---------|---------|--------------|
 | `repo list` | List repositories | Filtering, JSON output |
 | `repo extract` | Extract repo data | LLM categorization, detailed analysis |
-| `repo tag` | Add topic tags | AI-powered, bulk operations |
+| `repo describe` | Generate descriptions | AI-powered, bulk operations |
+| `repo tag` | Add topic tags | AI-powered, preferred tags, model selection |
+| `repo badges` | Generate topic badges | Auto-apply to READMEs, multiple styles |
 | `repo health` | Check repo quality | Best practices audit, grading system |
 | `repo clone` | Clone repositories | Parallel processing, smart organization |
 | `invite accept` | Accept invitations | Dry-run mode, bulk processing |
 | `invite leave` | Leave repositories | Confirmation prompts, safety checks |
-| `org readme` | Generate org README | LLM descriptions, 3 templates |
+| `org readme` | Generate org README | LLM descriptions, 3 templates, direct push |
 | `portfolio generate` | Cross-org portfolio | Auto-discover orgs, README + HTML |
-| `portfolio audit` | Audit repositories | Find missing metadata, JSON reports |
+| `portfolio audit` | Audit repositories | Find missing metadata, personal repos, JSON reports |
 | `site generate` | Create portfolio sites | 4 themes, responsive design |
 | `page generate` | Create landing pages | HTML/Jekyll output, README conversion |
 

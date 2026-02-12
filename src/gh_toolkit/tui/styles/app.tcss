@@ -80,6 +80,22 @@ ListView > ListItem.--highlight {
     border-bottom: solid $primary;
 }
 
+/* Search input */
+.search-input {
+    height: 3;
+    padding: 0 1;
+    border-bottom: solid $secondary;
+    background: $surface-darken-1;
+}
+
+.search-input:focus {
+    border-bottom: solid $accent;
+}
+
+.search-input.hidden {
+    display: none;
+}
+
 /* Repository details */
 .repo-details {
     padding: 1 2;

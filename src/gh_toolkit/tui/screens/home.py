@@ -8,7 +8,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import Screen
-from textual.widgets import Label, ListItem, ListView, Static
+from textual.widgets import Input, Label, ListItem, ListView, Static
 
 if TYPE_CHECKING:
     from gh_toolkit.tui.app import GhToolkitApp
@@ -42,13 +42,15 @@ class HomeScreen(Screen[None]):
 
     BINDINGS = [
         Binding("enter", "select_org", "Select"),
-        Binding("escape", "app.quit", "Quit"),
+        Binding("escape", "cancel_or_quit", "Back/Quit"),
         Binding("r", "refresh", "Refresh"),
+        Binding("/", "toggle_search", "Search"),
     ]
 
     def __init__(self) -> None:
         super().__init__()
         self._orgs: list[dict[str, Any]] = []
+        self._search_active = False
 
     @property
     def app(self) -> GhToolkitApp:
@@ -59,6 +61,7 @@ class HomeScreen(Screen[None]):
         """Compose the home screen."""
         yield Vertical(
             Static("Organizations", classes="screen-title"),
+            Input(placeholder="Search organizations...", id="search-input", classes="search-input hidden"),
             Static("Loading...", id="stats-bar", classes="stats-bar"),
             ListView(id="org-list", classes="org-list"),
             classes="content",
@@ -72,6 +75,7 @@ class HomeScreen(Screen[None]):
         """Load organizations from GitHub API."""
         list_view = self.query_one("#org-list", ListView)
         stats_bar = self.query_one("#stats-bar", Static)
+        search_input = self.query_one("#search-input", Input)
 
         list_view.clear()
         stats_bar.update("Loading organizations...")
@@ -86,12 +90,8 @@ class HomeScreen(Screen[None]):
             # Sort by login name
             self._orgs.sort(key=lambda x: x.get("login", "").lower())
 
-            # Update stats
-            stats_bar.update(f"{len(self._orgs)} organizations")
-
-            # Populate list
-            for org in self._orgs:
-                list_view.append(OrgListItem(org))
+            # Apply any existing search filter
+            self._filter_orgs(search_input.value if self._search_active else "")
 
             # Focus the list
             list_view.focus()
@@ -120,3 +120,65 @@ class HomeScreen(Screen[None]):
     def refresh_data(self) -> None:
         """Refresh organizations data."""
         self.load_organizations()
+
+    def action_toggle_search(self) -> None:
+        """Toggle the search input visibility."""
+        search_input = self.query_one("#search-input", Input)
+        if search_input.has_class("hidden"):
+            search_input.remove_class("hidden")
+            search_input.focus()
+            self._search_active = True
+        else:
+            search_input.add_class("hidden")
+            search_input.value = ""
+            self._search_active = False
+            self._filter_orgs("")
+            list_view = self.query_one("#org-list", ListView)
+            list_view.focus()
+
+    def action_cancel_or_quit(self) -> None:
+        """Cancel search or quit the app."""
+        if self._search_active:
+            self.action_toggle_search()
+        else:
+            self.app.exit()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Handle search input changes."""
+        if event.input.id == "search-input":
+            self._filter_orgs(event.value)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle search input submission."""
+        if event.input.id == "search-input":
+            # Focus the list and select first item
+            list_view = self.query_one("#org-list", ListView)
+            list_view.focus()
+
+    def _filter_orgs(self, query: str) -> None:
+        """Filter organizations based on search query."""
+        list_view = self.query_one("#org-list", ListView)
+        stats_bar = self.query_one("#stats-bar", Static)
+
+        list_view.clear()
+
+        if not self._orgs:
+            return
+
+        # Filter orgs by login or description
+        query_lower = query.lower()
+        filtered = [
+            org for org in self._orgs
+            if query_lower in org.get("login", "").lower()
+            or query_lower in (org.get("description") or "").lower()
+        ]
+
+        # Update stats
+        if query:
+            stats_bar.update(f"{len(filtered)} of {len(self._orgs)} organizations")
+        else:
+            stats_bar.update(f"{len(self._orgs)} organizations")
+
+        # Populate list
+        for org in filtered:
+            list_view.append(OrgListItem(org))

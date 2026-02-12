@@ -16,13 +16,15 @@ gh-toolkit repo tag [REPO_PATTERNS...] [OPTIONS]
 
 | Option | Type | Description | Default |
 |--------|------|-------------|---------|
-| `--token` | TEXT | GitHub personal access token | `$GITHUB_TOKEN` |
+| `--token`, `-t` | TEXT | GitHub personal access token | `$GITHUB_TOKEN` |
 | `--anthropic-key` | TEXT | Anthropic API key for LLM categorization | `$ANTHROPIC_API_KEY` |
+| `--model`, `-m` | TEXT | Anthropic model to use for AI tagging | `claude-3-haiku-20240307` |
+| `--tags` | TEXT | Preferred tags to consider (comma-separated with descriptions) | |
 | `--force` | FLAG | Overwrite existing topics | Don't overwrite |
 | `--dry-run` | FLAG | Show what would be tagged without making changes | Execute changes |
-| `--max-topics` | INT | Maximum number of topics to add | 5 |
-| `--threads` | INT | Number of parallel processing threads | 4 |
-| `--delay` | FLOAT | Delay between API requests (seconds) | 1.0 |
+| `--add-description` | FLAG | Generate and add description if missing | No |
+| `--rate-limit`, `-r` | FLOAT | Seconds between API requests | `0.5` |
+| `--output`, `-o` | PATH | Save results to JSON file | |
 | `--help` | FLAG | Show help message | |
 
 ## Repository Patterns
@@ -72,12 +74,42 @@ gh-toolkit repo tag "myorg/*" --dry-run --anthropic-key sk-ant-xxxxx
 # Force update existing topics
 gh-toolkit repo tag "myorg/*" --force --anthropic-key sk-ant-xxxxx
 
-# Limit number of topics
-gh-toolkit repo tag "myorg/*" --max-topics 3
+# Also generate description if missing
+gh-toolkit repo tag "myorg/*" --add-description
 
 # Slower processing for rate limiting
-gh-toolkit repo tag "myorg/*" --delay 2.0 --threads 2
+gh-toolkit repo tag "myorg/*" --rate-limit 2.0
+
+# Save results to JSON
+gh-toolkit repo tag "myorg/*" --output tagging-results.json
 ```
+
+### Using Different Models
+
+```bash
+# Use Haiku (fastest, default)
+gh-toolkit repo tag user/repo --model claude-3-haiku-20240307
+
+# Use Sonnet for better accuracy
+gh-toolkit repo tag user/repo --model claude-sonnet-4-20250514
+
+# Use Opus for highest quality
+gh-toolkit repo tag user/repo --model claude-opus-4-20250514
+```
+
+### Preferred Tags
+
+Guide the AI with preferred tag mappings for consistent categorization:
+
+```bash
+# Provide preferred tags with descriptions
+gh-toolkit repo tag "myorg/*" --tags "edtech: Educational tools, curtin: Curtin University materials, exec-ed: Executive education"
+
+# Common academic tags
+gh-toolkit repo tag "university/*" --tags "teaching: Teaching materials, research: Research projects, coursework: Student assignments"
+```
+
+The `--tags` option accepts a comma-separated list of `tag: description` pairs. The AI will consider these when generating topics, ensuring consistent tagging across related repositories.
 
 ## LLM-Powered Analysis
 

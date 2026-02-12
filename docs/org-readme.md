@@ -16,7 +16,7 @@ gh-toolkit org readme ORG_NAME [OPTIONS]
 
 | Option | Type | Description | Default |
 |--------|------|-------------|---------|
-| `--output`, `-o` | PATH | Output file path | `README.md` |
+| `--output`, `-o` | PATH | Output file path (ignored if `--apply` is used) | `README.md` |
 | `--token`, `-t` | TEXT | GitHub personal access token | `$GITHUB_TOKEN` |
 | `--anthropic-key` | TEXT | Anthropic API key for LLM descriptions | `$ANTHROPIC_API_KEY` |
 | `--template` | CHOICE | Template style: `default`, `minimal`, `detailed` | `default` |
@@ -26,6 +26,7 @@ gh-toolkit org readme ORG_NAME [OPTIONS]
 | `--exclude-forks/--include-forks` | FLAG | Exclude forked repositories | `--exclude-forks` |
 | `--min-stars` | INT | Minimum stars required to include a repo | `0` |
 | `--dry-run` | FLAG | Preview without writing to file | |
+| `--apply`, `-a` | FLAG | Push README directly to organization's `.github` repo | Save locally |
 | `--help` | FLAG | Show help message | |
 
 ## Examples
@@ -41,6 +42,9 @@ gh-toolkit org readme my-org --dry-run
 
 # Save to specific location
 gh-toolkit org readme my-org --output profile/README.md
+
+# Push directly to GitHub organization profile
+gh-toolkit org readme my-org --apply
 ```
 
 ### Templates
@@ -83,6 +87,53 @@ gh-toolkit org readme my-org --include-forks
 
 # Combine filters
 gh-toolkit org readme my-org --min-stars 10 --max-repos 15 --exclude-forks
+```
+
+## Direct GitHub Push (--apply)
+
+The `--apply` flag pushes the generated README directly to your organization's GitHub profile:
+
+```bash
+# Generate and push in one step
+gh-toolkit org readme my-org --apply
+
+# Combine with other options
+gh-toolkit org readme my-org --apply --template detailed --min-stars 5
+```
+
+### How It Works
+
+1. **Creates `.github` repo** if it doesn't exist in the organization
+2. **Creates `profile/` directory** if needed
+3. **Pushes `README.md`** to `.github/profile/README.md`
+4. **GitHub displays** this README on the organization's profile page
+
+### Preserving Custom Sections
+
+When updating an existing README, custom content can be preserved using special markers:
+
+```markdown
+<!-- CUSTOM:START -->
+Your custom content here will be preserved
+<!-- CUSTOM:END -->
+```
+
+Any content between these markers will be retained when `--apply` regenerates the README.
+
+### Requirements
+
+For `--apply` to work, your GitHub token needs:
+- `repo` scope (to create/update the `.github` repository)
+- Admin or write access to the organization
+
+### Example Workflow
+
+```bash
+# First preview
+gh-toolkit org readme my-org --dry-run
+
+# Then apply
+gh-toolkit org readme my-org --apply
 ```
 
 ## Output Format

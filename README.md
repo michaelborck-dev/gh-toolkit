@@ -11,11 +11,14 @@ A comprehensive command-line tool for managing GitHub repository portfolios at s
 
 - 📋 **Repository Management** - List, filter, and extract comprehensive repository data
 - 🤖 **LLM-Powered Categorization** - Intelligent repository classification using Claude AI
-- 🏷️ **Automated Topic Tagging** - Smart topic suggestions with fallback rules
+- 📝 **Description Generation** - AI-powered repository description creation
+- 🏷️ **Automated Topic Tagging** - Smart topic suggestions with custom tag preferences
+- 🔖 **Topic Badges** - Generate shields.io badges from repository topics
 - 🩺 **Repository Health Checking** - Comprehensive quality audits with best practices compliance
 - 🎨 **Portfolio Site Generation** - Beautiful, responsive HTML portfolios with 4 themes
 - 📄 **Landing Page Generation** - Convert README.md to stunning HTML or Jekyll pages
 - 📧 **Invitation Management** - Bulk accept/leave repository collaborations
+- 🏢 **Organization READMEs** - Generate and push org profile READMEs directly to GitHub
 - 🎯 **Academic Workflow** - Perfect alternative to GitHub Classroom
 - ⚡ **Modern CLI** - Built with typer and rich for beautiful terminal experience
 
@@ -90,8 +93,17 @@ gh-toolkit repo extract repos.txt \
   --anthropic-key=sk-... \
   --output portfolio_data.json
 
+# Generate repository descriptions with AI
+gh-toolkit repo describe "user/*" --dry-run
+gh-toolkit repo describe user/repo --model claude-sonnet-4-20250514
+
 # Add intelligent topic tags
 gh-toolkit repo tag user/repo --force --anthropic-key=sk-...
+gh-toolkit repo tag "user/*" --tags "edtech: Educational, tool: CLI tools"
+
+# Generate topic badges for READMEs
+gh-toolkit repo badges user/repo
+gh-toolkit repo badges "user/*" --apply  # Auto-update READMEs
 
 # Check repository health and compliance
 gh-toolkit repo health user/repo --rules professional --min-score 80
@@ -126,6 +138,31 @@ gh-toolkit page generate README.md --jekyll --output index.md
 gh-toolkit page generate README.md --jekyll \
   --title "My Project" \
   --description "Amazing software project"
+```
+
+### Organization Commands
+
+```bash
+# Generate README for an organization
+gh-toolkit org readme my-org --template detailed
+
+# Push README directly to organization's GitHub profile
+gh-toolkit org readme my-org --apply
+
+# Generate with filtering
+gh-toolkit org readme my-org --max-repos 20 --min-stars 5 --apply
+```
+
+### Portfolio Commands
+
+```bash
+# Generate cross-organization portfolio
+gh-toolkit portfolio generate --discover
+gh-toolkit portfolio generate --org org1 --org org2 --html portfolio.html
+
+# Audit repositories for missing metadata
+gh-toolkit portfolio audit --discover
+gh-toolkit portfolio audit --user --output audit-report.json
 ```
 
 ### Invitation Management
@@ -226,14 +263,17 @@ uv run pytest tests/integration/ -v
 src/gh_toolkit/
 ├── cli.py                 # Main CLI entry point
 ├── commands/              # Command implementations
-│   ├── repo.py           # Repository management
-│   ├── site.py           # Site generation  
+│   ├── repo.py           # Repository management (list, extract, describe, badges, health)
+│   ├── org.py            # Organization commands (readme)
+│   ├── portfolio.py      # Portfolio commands (generate, audit)
+│   ├── site.py           # Site generation
 │   ├── tag.py            # Topic tagging
 │   └── invite.py         # Invitation management
 └── core/                  # Core functionality
     ├── github_client.py   # GitHub API client
     ├── repo_extractor.py  # Data extraction
     ├── site_generator.py  # HTML generation
+    ├── readme_generator.py # Organization README generation
     └── topic_tagger.py    # LLM tagging
 ```
 

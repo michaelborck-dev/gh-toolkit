@@ -14,6 +14,7 @@ gh-toolkit portfolio audit [OPTIONS]
 |--------|------|-------------|---------|
 | `--org`, `-o` | TEXT | Organization names to audit (repeatable) | |
 | `--discover`, `-d` | FLAG | Auto-discover orgs from user memberships | |
+| `--user`, `-u` | FLAG | Include authenticated user's personal repositories | Exclude |
 | `--include-private` | FLAG | Include private repositories | Exclude |
 | `--exclude-forks/--include-forks` | FLAG | Exclude forked repositories | `--exclude-forks` |
 | `--output` | PATH | Output audit report to JSON file | |
@@ -33,6 +34,12 @@ gh-toolkit portfolio audit --org my-org
 
 # Audit multiple organizations
 gh-toolkit portfolio audit --org org1 --org org2
+
+# Audit your personal repositories
+gh-toolkit portfolio audit --user
+
+# Audit personal repos plus all organizations
+gh-toolkit portfolio audit --user --discover
 ```
 
 ### Output Options
@@ -143,6 +150,21 @@ gh-toolkit portfolio audit --org my-org --token ghp_xxxxxxxxxxxxxxxxxxxx
 
 ## Common Use Cases
 
+### Personal Repository Audit
+
+Audit your own repositories for missing metadata:
+
+```bash
+# Audit all personal repositories
+gh-toolkit portfolio audit --user
+
+# Include private repositories
+gh-toolkit portfolio audit --user --include-private
+
+# Combine with organization discovery
+gh-toolkit portfolio audit --user --discover --output full-audit.json
+```
+
 ### Regular Health Check
 
 Run periodic audits to maintain repository quality:
@@ -230,7 +252,7 @@ The command respects GitHub API rate limits:
 
 Common errors and solutions:
 
-- **No organizations found**: Use `--discover` or specify `--org`
+- **No organizations found**: Use `--discover`, `--org`, or `--user` to specify what to audit
 - **401 Unauthorized**: Check your GitHub token
 - **403 Forbidden**: Token may lack required scopes
 - **Empty audit**: All repositories pass the audit (no issues found)
