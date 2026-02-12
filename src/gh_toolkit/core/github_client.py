@@ -599,3 +599,88 @@ class GitHubClient:
         endpoint = f"/orgs/{org_name}"
         response = self._make_request("GET", endpoint)
         return response.json()
+
+    def create_org_repo(
+        self,
+        org_name: str,
+        repo_name: str,
+        description: str = "",
+        private: bool = False,
+    ) -> dict[str, Any] | None:
+        """Create a new repository in an organization.
+
+        Args:
+            org_name: Organization name
+            repo_name: Repository name
+            description: Repository description
+            private: Whether the repository should be private
+
+        Returns:
+            Repository data or None if failed
+        """
+        endpoint = f"/orgs/{org_name}/repos"
+        data = {
+            "name": repo_name,
+            "description": description,
+            "private": private,
+            "auto_init": False,  # We'll add files ourselves
+        }
+        try:
+            response = self._make_request("POST", endpoint, json_data=data)
+            return response.json()
+        except GitHubAPIError:
+            return None
+
+    def create_file_contents(
+        self,
+        owner: str,
+        repo: str,
+        path: str,
+        content: str,
+        message: str,
+        branch: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Create a new file in a repository.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            path: Path for the new file
+            content: File content (will be base64 encoded)
+            message: Commit message
+            branch: Branch to create file on (defaults to default branch)
+
+        Returns:
+            Commit response or None if failed
+        """
+        import base64
+
+        endpoint = f"/repos/{owner}/{repo}/contents/{path}"
+        data: dict[str, Any] = {
+            "message": message,
+            "content": base64.b64encode(content.encode()).decode(),
+        }
+        if branch:
+            data["branch"] = branch
+
+        try:
+            response = self._make_request("PUT", endpoint, json_data=data)
+            return response.json()
+        except GitHubAPIError:
+            return None
+
+    def repo_exists(self, owner: str, repo: str) -> bool:
+        """Check if a repository exists.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+
+        Returns:
+            True if repository exists, False otherwise
+        """
+        try:
+            self.get_repo_info(owner, repo)
+            return True
+        except GitHubAPIError:
+            return False
