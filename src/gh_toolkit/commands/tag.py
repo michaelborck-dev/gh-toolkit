@@ -35,6 +35,17 @@ def tag_repos(
     force: bool = typer.Option(
         False, "--force", help="Update topics even if repository already has topics"
     ),
+    add_description: bool = typer.Option(
+        False,
+        "--add-description",
+        help="Generate and add description if missing before tagging",
+    ),
+    rate_limit: float = typer.Option(
+        0.5,
+        "--rate-limit",
+        "-r",
+        help="Seconds between API requests (default: 0.5)",
+    ),
     output: str | None = typer.Option(
         None, "--output", "-o", help="Save results to JSON file"
     ),
@@ -70,7 +81,7 @@ def tag_repos(
 
         # Initialize clients
         client = GitHubClient(github_token)
-        tagger = TopicTagger(client, anthropic_api_key)
+        tagger = TopicTagger(client, anthropic_api_key, rate_limit)
 
         # Parse repository input
         repo_list = _parse_repos_input(repos_input, client)
@@ -87,11 +98,17 @@ def tag_repos(
             console.print("[yellow]🔍 DRY RUN MODE - No changes will be made[/yellow]")
         if force:
             console.print(
-                "[yellow]⚡ FORCE MODE - Will update repositories that already have topics[/yellow]"
+                "[yellow] FORCE MODE - Will update repositories that already have topics[/yellow]"
+            )
+        if add_description:
+            console.print(
+                "[blue] ADD DESCRIPTION - Will generate descriptions for repos without one[/blue]"
             )
 
         # Process repositories
-        results = tagger.process_multiple_repositories(repo_list, dry_run, force)
+        results = tagger.process_multiple_repositories(
+            repo_list, dry_run, force, add_description
+        )
 
         # Show summary
         _show_summary(results, dry_run)

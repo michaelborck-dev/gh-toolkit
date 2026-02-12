@@ -30,6 +30,14 @@ class TestTopicTagger:
         assert tagger.client == client
         assert tagger.anthropic_api_key is None
         assert tagger._anthropic_client is None
+        assert tagger.rate_limit == 0.5  # Default rate limit
+
+    def test_init_custom_rate_limit(self, mock_github_token):
+        """Test TopicTagger initialization with custom rate limit."""
+        client = GitHubClient(mock_github_token)
+        tagger = TopicTagger(client, None, rate_limit=1.0)
+
+        assert tagger.rate_limit == 1.0
 
     def test_init_anthropic_import_error(
         self, mock_github_token, mock_anthropic_key, mocker
@@ -413,7 +421,45 @@ class TestTopicTagger:
         assert len(results) == 2
         assert results[0]["status"] == "success"
         assert results[1]["status"] == "skipped"
-        mock_sleep.assert_called_once_with(2)  # Rate limiting
+        mock_sleep.assert_called_once_with(0.5)  # Default rate limiting
+
+    def test_process_multiple_repositories_custom_rate(self, mock_github_token, mocker):
+        """Test processing with custom rate limit."""
+        mock_process = mocker.patch.object(TopicTagger, "process_repository")
+        mock_process.side_effect = [
+            {"status": "success", "repo": "user/repo1"},
+            {"status": "success", "repo": "user/repo2"},
+        ]
+
+        mock_sleep = mocker.patch("time.sleep")
+
+        client = GitHubClient(mock_github_token)
+        tagger = TopicTagger(client, rate_limit=1.5)
+
+        repo_list = [("user", "repo1"), ("user", "repo2")]
+        results = tagger.process_multiple_repositories(repo_list, dry_run=True)
+
+        assert len(results) == 2
+        mock_sleep.assert_called_once_with(1.5)
+
+    def test_process_multiple_repositories_zero_rate(self, mock_github_token, mocker):
+        """Test processing with zero rate limit (no sleep)."""
+        mock_process = mocker.patch.object(TopicTagger, "process_repository")
+        mock_process.side_effect = [
+            {"status": "success", "repo": "user/repo1"},
+            {"status": "success", "repo": "user/repo2"},
+        ]
+
+        mock_sleep = mocker.patch("time.sleep")
+
+        client = GitHubClient(mock_github_token)
+        tagger = TopicTagger(client, rate_limit=0)
+
+        repo_list = [("user", "repo1"), ("user", "repo2")]
+        results = tagger.process_multiple_repositories(repo_list, dry_run=True)
+
+        assert len(results) == 2
+        mock_sleep.assert_not_called()  # No sleep when rate_limit is 0
 
     def test_topic_validation(self, mock_github_token, mock_anthropic_client):
         """Test topic validation and filtering."""
@@ -445,3 +491,100 @@ class TestTopicTagger:
         assert "valid-topic" in topics
         assert "-invalid-" not in topics
         assert "too-long-topic-name-that-exceeds-fifty-characters-limit" not in topics
+
+    @responses.activate
+    def test_process_repository_warns_missing_description(self, mock_github_token):
+        """Test that processing warns when description is missing."""
+        # Mock repo info without description
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo",
+            json={
+                "name": "test-repo",
+                "description": None,  # Missing description
+                "language": "Python",
+                "stargazers_count": 10,
+                "forks_count": 2,
+            },
+            status=200,
+        )
+
+        # Mock languages
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo/languages",
+            json={"Python": 1000},
+            status=200,
+        )
+
+        # Mock current topics (empty)
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo/topics",
+            json={"names": []},
+            status=200,
+        )
+
+        # Mock README
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo/readme",
+            status=404,
+        )
+
+        client = GitHubClient(mock_github_token)
+        tagger = TopicTagger(client)
+
+        result = tagger.process_repository("testuser", "test-repo", dry_run=True)
+
+        assert result["status"] == "dry_run"
+        assert "warnings" in result
+        assert "missing_description" in result["warnings"]
+
+    @responses.activate
+    def test_process_repository_no_warning_with_description(self, mock_github_token):
+        """Test that processing does not warn when description exists."""
+        # Mock repo info with description
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo",
+            json={
+                "name": "test-repo",
+                "description": "A test repository",  # Has description
+                "language": "Python",
+                "stargazers_count": 10,
+                "forks_count": 2,
+            },
+            status=200,
+        )
+
+        # Mock languages
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo/languages",
+            json={"Python": 1000},
+            status=200,
+        )
+
+        # Mock current topics (empty)
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo/topics",
+            json={"names": []},
+            status=200,
+        )
+
+        # Mock README
+        responses.add(
+            responses.GET,
+            "https://api.github.com/repos/testuser/test-repo/readme",
+            status=404,
+        )
+
+        client = GitHubClient(mock_github_token)
+        tagger = TopicTagger(client)
+
+        result = tagger.process_repository("testuser", "test-repo", dry_run=True)
+
+        assert result["status"] == "dry_run"
+        assert "warnings" not in result or len(result.get("warnings", [])) == 0

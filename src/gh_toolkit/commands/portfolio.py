@@ -215,6 +215,12 @@ def audit(
         "-d",
         help="Auto-discover organizations from user memberships",
     ),
+    user: bool = typer.Option(
+        False,
+        "--user",
+        "-u",
+        help="Include authenticated user's personal repositories",
+    ),
     include_private: bool = typer.Option(
         False,
         "--include-private",
@@ -248,8 +254,8 @@ def audit(
     """
     try:
         # Validate inputs
-        if not org and not discover:
-            console.print("[red]Error: Specify --org names or use --discover flag[/red]")
+        if not org and not discover and not user:
+            console.print("[red]Error: Specify --org names, use --discover flag, or use --user flag[/red]")
             raise typer.Exit(1)
 
         # Get token
@@ -272,21 +278,41 @@ def audit(
                 if org_login and org_login not in org_names:
                     org_names.append(org_login)
 
-        if not org_names:
+        # Show what we're auditing
+        sources: list[str] = []
+        if org_names:
+            sources.append(f"{len(org_names)} organizations")
+        if user:
+            sources.append("personal repositories")
+
+        if not org_names and not user:
             console.print("[yellow]No organizations found[/yellow]")
             raise typer.Exit(0)
 
-        console.print(f"[blue]Auditing {len(org_names)} organizations:[/blue]")
+        console.print(f"[blue]Auditing: {', '.join(sources)}[/blue]")
         for name in org_names:
             console.print(f"  - {name}")
 
-        # Aggregate repositories
-        repos = generator.aggregate_repos(
-            org_names=org_names,
-            exclude_forks=exclude_forks,
-            include_private=include_private,
-            min_stars=0,
-        )
+        # Aggregate repositories from organizations
+        repos: list[dict[str, Any]] = []
+        if org_names:
+            repos = generator.aggregate_repos(
+                org_names=org_names,
+                exclude_forks=exclude_forks,
+                include_private=include_private,
+                min_stars=0,
+            )
+
+        # Include personal repositories if requested
+        if user:
+            console.print("[blue]Including personal repositories...[/blue]")
+            visibility = "all" if include_private else "public"
+            user_repos = client.get_user_repos(visibility=visibility, affiliation="owner")
+            for repo in user_repos:
+                if exclude_forks and repo.get("fork"):
+                    continue
+                repo["source_org"] = "personal"
+                repos.append(repo)
 
         if not repos:
             console.print("[yellow]No repositories found[/yellow]")

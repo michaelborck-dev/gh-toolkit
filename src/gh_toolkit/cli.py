@@ -13,6 +13,7 @@ from gh_toolkit.commands.portfolio import audit as portfolio_audit
 from gh_toolkit.commands.portfolio import generate as portfolio_generate
 from gh_toolkit.commands.repo import (
     clone_repos,
+    describe_repos,
     extract_repos,
     health_check,
     list_repos,
@@ -103,6 +104,7 @@ def tui() -> None:
 repo_app.command("list")(list_repos)
 repo_app.command("extract")(extract_repos)
 repo_app.command("tag")(tag_repos)
+repo_app.command("describe")(describe_repos)
 repo_app.command("health")(health_check)
 repo_app.command("clone")(clone_repos)
 

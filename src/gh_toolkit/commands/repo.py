@@ -936,3 +936,235 @@ def _display_clone_results(
         )
     else:
         console.print("\n[bold red]❌ All clone operations failed[/bold red]")
+
+
+def describe_repos(
+    repos_input: str = typer.Argument(
+        help="Repository (owner/repo), file with repo list, or 'username/*' for all user repos"
+    ),
+    token: str | None = typer.Option(
+        None, "--token", "-t", help="GitHub token (or set GITHUB_TOKEN env var)"
+    ),
+    anthropic_key: str | None = typer.Option(
+        None,
+        "--anthropic-key",
+        help="Anthropic API key for LLM generation (or set ANTHROPIC_API_KEY env var)",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show what descriptions would be added without making changes",
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Update description even if repository already has one"
+    ),
+    rate_limit: float = typer.Option(
+        0.5,
+        "--rate-limit",
+        "-r",
+        help="Seconds between API requests (default: 0.5)",
+    ),
+    output: str | None = typer.Option(
+        None, "--output", "-o", help="Save results to JSON file"
+    ),
+) -> None:
+    """Generate and update repository descriptions using LLM analysis.
+
+    Automatically generates descriptions for repositories based on their
+    content, README, and programming languages used.
+
+    Examples:
+        gh-toolkit repo describe user/repo --dry-run
+        gh-toolkit repo describe repos.txt --force
+        gh-toolkit repo describe michael-borck/* --anthropic-key=sk-...
+    """
+    try:
+        from gh_toolkit.core.description_generator import DescriptionGenerator
+
+        # Get tokens
+        github_token = token or os.environ.get("GITHUB_TOKEN")
+        if not github_token:
+            console.print(
+                "[red]GitHub token required. Set GITHUB_TOKEN env var or use --token[/red]"
+            )
+            console.print("[dim]Required scopes: repo[/dim]")
+            raise typer.Exit(1)
+
+        anthropic_api_key = anthropic_key or os.environ.get("ANTHROPIC_API_KEY")
+        if not anthropic_api_key:
+            console.print(
+                "[yellow]No Anthropic API key provided. Will use rule-based generation.[/yellow]"
+            )
+            console.print(
+                "[dim]For better results, set ANTHROPIC_API_KEY env var or use --anthropic-key[/dim]"
+            )
+
+        # Initialize clients
+        client = GitHubClient(github_token)
+        generator = DescriptionGenerator(client, anthropic_api_key, rate_limit)
+
+        # Parse repository input
+        repo_list = _parse_describe_repos_input(repos_input, client)
+
+        if not repo_list:
+            console.print("[red]No repositories found to process[/red]")
+            raise typer.Exit(1)
+
+        # Show what we're about to do
+        console.print(
+            f"\n[blue]Found {len(repo_list)} repositories to process[/blue]"
+        )
+        if dry_run:
+            console.print("[yellow]DRY RUN MODE - No changes will be made[/yellow]")
+        if force:
+            console.print(
+                "[yellow]FORCE MODE - Will update repositories that already have descriptions[/yellow]"
+            )
+
+        # Process repositories
+        results = generator.process_multiple_repositories(repo_list, dry_run, force)
+
+        # Show summary
+        _show_describe_summary(results, dry_run)
+
+        # Save results if requested
+        if output:
+            _save_describe_results(results, output, dry_run, force)
+
+    except KeyboardInterrupt as e:
+        console.print("\n[yellow]Operation cancelled by user[/yellow]")
+        raise typer.Exit(1) from e
+    except Exception as e:
+        console.print(f"[red]Unexpected error: {e}[/red]")
+        raise typer.Exit(1) from e
+
+
+def _parse_describe_repos_input(
+    repos_input: str, client: GitHubClient
+) -> list[tuple[str, str]]:
+    """Parse repository input and return list of (owner, repo) tuples."""
+    repos: list[tuple[str, str]] = []
+
+    # Check if it's a file
+    if Path(repos_input).exists():
+        console.print(f"[blue]Loading repositories from file: {repos_input}[/blue]")
+        with open(repos_input, encoding="utf-8") as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    try:
+                        owner, repo = _parse_describe_repo_string(line)
+                        repos.append((owner, repo))
+                    except ValueError as e:
+                        console.print(f"[yellow]Line {line_num}: {e}[/yellow]")
+        return repos
+
+    # Check if it's a wildcard pattern (user/*)
+    if repos_input.endswith("/*"):
+        owner = repos_input[:-2]
+        console.print(
+            f"[blue]Fetching all repositories for user/org: {owner}[/blue]"
+        )
+        try:
+            user_repos = client.get_user_repos(owner)
+            repos = [(owner, repo["name"]) for repo in user_repos]
+            console.print(
+                f"[green]Found {len(repos)} repositories for {owner}[/green]"
+            )
+            return repos
+        except Exception as e:
+            console.print(f"[red]Error fetching repositories for {owner}: {e}[/red]")
+            return []
+
+    # Single repository
+    try:
+        owner, repo = _parse_describe_repo_string(repos_input)
+        return [(owner, repo)]
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        return []
+
+
+def _parse_describe_repo_string(repo_string: str) -> tuple[str, str]:
+    """Parse 'owner/repo' format into owner and repo name."""
+    parts = repo_string.strip().split("/")
+    if len(parts) != 2:
+        raise ValueError(f"Invalid repo format: {repo_string}. Expected 'owner/repo'")
+    return parts[0], parts[1]
+
+
+def _show_describe_summary(results: list[dict[str, Any]], dry_run: bool) -> None:
+    """Display summary of description generation results."""
+    console.print("\n[bold]SUMMARY[/bold]")
+
+    # Count results by status
+    status_counts: dict[str, int] = {}
+    for result in results:
+        status: str = result["status"]
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+    # Create summary table
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Status", style="cyan")
+    table.add_column("Count", justify="right", style="green")
+    table.add_column("Description", style="dim")
+
+    # Add rows
+    if not dry_run:
+        table.add_row(
+            "Success",
+            str(status_counts.get("success", 0)),
+            "Descriptions successfully updated",
+        )
+        table.add_row(
+            "Skipped",
+            str(status_counts.get("skipped", 0)),
+            "Already has description (use --force to update)",
+        )
+    else:
+        dry_run_count = status_counts.get("dry_run", 0)
+        table.add_row(
+            "Would Update", str(dry_run_count), "Descriptions would be added/updated"
+        )
+
+    table.add_row("Errors", str(status_counts.get("error", 0)), "Failed to process")
+    table.add_row("Total", str(len(results)), "Repositories processed")
+
+    console.print(table)
+
+    # Show error details if any
+    errors = [r for r in results if r["status"] == "error"]
+    if errors:
+        console.print("\n[red]Error Details:[/red]")
+        for error in errors:
+            console.print(
+                f"  [red]-[/red] {error['repo']}: {error.get('message', 'Unknown error')}"
+            )
+
+
+def _save_describe_results(
+    results: list[dict[str, Any]], output_path: str, dry_run: bool, force: bool
+) -> None:
+    """Save results to JSON file."""
+    import json
+    from datetime import datetime
+
+    output_data = {
+        "timestamp": datetime.now().isoformat(),
+        "dry_run": dry_run,
+        "force_update": force,
+        "total_processed": len(results),
+        "summary": {
+            "success": len([r for r in results if r["status"] == "success"]),
+            "skipped": len([r for r in results if r["status"] == "skipped"]),
+            "errors": len([r for r in results if r["status"] == "error"]),
+            "dry_run": len([r for r in results if r["status"] == "dry_run"]),
+        },
+        "results": results,
+    }
+
+    output_file = Path(output_path)
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, indent=2)
+
+    console.print(f"\n[green]Results saved to: {output_file.absolute()}[/green]")

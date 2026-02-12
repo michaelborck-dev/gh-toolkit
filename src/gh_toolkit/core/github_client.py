@@ -501,6 +501,29 @@ class GitHubClient:
         """
         return self.get_paginated("/user/orgs")
 
+    def update_repo_description(self, owner: str, repo: str, description: str) -> bool:
+        """Update repository description via GitHub API.
+
+        Uses PATCH /repos/{owner}/{repo} endpoint.
+        Description limited to 250 characters by GitHub.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            description: New description (will be truncated to 250 chars)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        endpoint = f"/repos/{owner}/{repo}"
+        try:
+            self._make_request(
+                "PATCH", endpoint, json_data={"description": description[:250]}
+            )
+            return True
+        except GitHubAPIError:
+            return False
+
     def get_org_info(self, org_name: str) -> dict[str, Any]:
         """Get detailed information about an organization.
 

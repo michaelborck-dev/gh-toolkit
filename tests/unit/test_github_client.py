@@ -494,3 +494,72 @@ class TestGitHubClient:
 
         assert "404" in str(exc_info.value)
         assert "Not Found" in exc_info.value.message
+
+    # Repository description tests
+
+    @responses.activate
+    def test_update_repo_description_success(self, mock_github_token):
+        """Test successful repository description update."""
+        responses.add(
+            responses.PATCH,
+            "https://api.github.com/repos/testuser/test-repo",
+            json={"description": "New description"},
+            status=200,
+        )
+
+        client = GitHubClient(mock_github_token)
+        result = client.update_repo_description(
+            "testuser", "test-repo", "New description"
+        )
+
+        assert result is True
+
+        # Verify request payload
+        request = responses.calls[0].request
+        import json
+
+        payload = json.loads(request.body)
+        assert payload == {"description": "New description"}
+
+    @responses.activate
+    def test_update_repo_description_truncates_long(self, mock_github_token):
+        """Test that long descriptions are truncated to 250 chars."""
+        responses.add(
+            responses.PATCH,
+            "https://api.github.com/repos/testuser/test-repo",
+            json={"description": "A" * 250},
+            status=200,
+        )
+
+        long_description = "A" * 300  # 300 chars
+
+        client = GitHubClient(mock_github_token)
+        result = client.update_repo_description(
+            "testuser", "test-repo", long_description
+        )
+
+        assert result is True
+
+        # Verify description was truncated
+        request = responses.calls[0].request
+        import json
+
+        payload = json.loads(request.body)
+        assert len(payload["description"]) == 250
+
+    @responses.activate
+    def test_update_repo_description_error(self, mock_github_token):
+        """Test repository description update error handling."""
+        responses.add(
+            responses.PATCH,
+            "https://api.github.com/repos/testuser/test-repo",
+            json={"message": "Not Found"},
+            status=404,
+        )
+
+        client = GitHubClient(mock_github_token)
+        result = client.update_repo_description(
+            "testuser", "test-repo", "New description"
+        )
+
+        assert result is False

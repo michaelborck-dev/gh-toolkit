@@ -384,6 +384,16 @@ class TaggingResult(TypedDict):
     error: str | None
 
 
+class DescriptionResult(TypedDict):
+    """Result of description generation operation."""
+
+    repo: str
+    status: Literal["success", "skipped", "error", "dry_run"]
+    old_description: str | None
+    new_description: str | None
+    message: str
+
+
 # =============================================================================
 # Protocol Interfaces
 # =============================================================================
@@ -451,6 +461,7 @@ CloneResultList = list[CloneResult]
 ExtractedRepositoryList = list[ExtractedRepository]
 TopicList = list[str]
 TaggingResultList = list[TaggingResult]
+DescriptionResultList = list[DescriptionResult]
 
 # API response types
 APIResponse = dict[str, any]

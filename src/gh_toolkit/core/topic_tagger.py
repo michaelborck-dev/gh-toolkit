@@ -14,11 +14,21 @@ class TopicTagger:
     """Automatically add relevant topic tags to GitHub repositories using LLM analysis."""
 
     def __init__(
-        self, github_client: GitHubClient, anthropic_api_key: str | None = None
+        self,
+        github_client: GitHubClient,
+        anthropic_api_key: str | None = None,
+        rate_limit: float = 0.5,
     ):
-        """Initialize with GitHub client and optional Anthropic API key."""
+        """Initialize with GitHub client and optional Anthropic API key.
+
+        Args:
+            github_client: Authenticated GitHub client
+            anthropic_api_key: Optional Anthropic API key for LLM features
+            rate_limit: Seconds to wait between API requests (default: 0.5)
+        """
         self.client = github_client
         self.anthropic_api_key = anthropic_api_key
+        self.rate_limit = rate_limit
 
         if anthropic_api_key:
             try:
@@ -232,9 +242,25 @@ Topics:"""
             return False
 
     def process_repository(
-        self, owner: str, repo: str, dry_run: bool = False, force: bool = False
+        self,
+        owner: str,
+        repo: str,
+        dry_run: bool = False,
+        force: bool = False,
+        add_description: bool = False,
     ) -> dict[str, Any]:
-        """Process a single repository for topic tagging."""
+        """Process a single repository for topic tagging.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            dry_run: If True, show what would be done without making changes
+            force: If True, update even if topics already exist
+            add_description: If True, generate and add description if missing
+
+        Returns:
+            Result dictionary with status and details
+        """
         repo_string = f"{owner}/{repo}"
 
         try:
@@ -245,17 +271,51 @@ Topics:"""
             languages = self.client.get_repo_languages(owner, repo)
             repo_data["languages"] = languages
 
+            # Initialize warnings list
+            warnings: list[str] = []
+
+            # Check for missing description and warn
+            if not repo_data.get("description"):
+                console.print(f"[yellow]  No description[/yellow]")
+                warnings.append("missing_description")
+
+                # Generate description if requested
+                if add_description:
+                    from gh_toolkit.core.description_generator import DescriptionGenerator
+
+                    desc_gen = DescriptionGenerator(
+                        self.client, self.anthropic_api_key, self.rate_limit
+                    )
+                    new_desc = desc_gen.generate_description(owner, repo, repo_data)
+                    if new_desc:
+                        if not dry_run:
+                            if desc_gen.update_description(owner, repo, new_desc):
+                                console.print(
+                                    f"[green]  + Added description: {new_desc}[/green]"
+                                )
+                            else:
+                                console.print(
+                                    "[red]  Failed to update description[/red]"
+                                )
+                        else:
+                            console.print(
+                                f"[cyan]  Would add description: {new_desc}[/cyan]"
+                            )
+
             # Get current topics
             current_topics = self.get_repo_topics(owner, repo)
 
             # Check if topics already exist and we're not forcing
             if current_topics and not force:
-                return {
+                result: dict[str, Any] = {
                     "repo": repo_string,
                     "status": "skipped",
                     "message": f"Repository already has {len(current_topics)} topics",
                     "current_topics": current_topics,
                 }
+                if warnings:
+                    result["warnings"] = warnings
+                return result
 
             # Get additional context
             readme = self.get_readme_content(owner, repo)
@@ -284,6 +344,10 @@ Topics:"""
                 "suggested_topics": suggested_topics,
                 "final_topics": final_topics,
             }
+
+            # Add warnings if any
+            if warnings:
+                result["warnings"] = warnings
 
             # Update topics if not in dry run mode
             if not dry_run:
@@ -326,8 +390,19 @@ Topics:"""
         repo_list: list[tuple[str, str]],
         dry_run: bool = False,
         force: bool = False,
+        add_description: bool = False,
     ) -> list[dict[str, Any]]:
-        """Process multiple repositories with rate limiting."""
+        """Process multiple repositories with rate limiting.
+
+        Args:
+            repo_list: List of (owner, repo) tuples
+            dry_run: If True, show what would be done without making changes
+            force: If True, update even if topics already exist
+            add_description: If True, generate and add description if missing
+
+        Returns:
+            List of result dictionaries
+        """
         results: list[dict[str, Any]] = []
 
         for i, (owner, repo) in enumerate(repo_list, 1):
@@ -335,7 +410,7 @@ Topics:"""
                 f"\n[blue]Processing {i}/{len(repo_list)}: {owner}/{repo}[/blue]"
             )
 
-            result = self.process_repository(owner, repo, dry_run, force)
+            result = self.process_repository(owner, repo, dry_run, force, add_description)
             results.append(result)
 
             # Show result
@@ -363,8 +438,8 @@ Topics:"""
             else:  # error
                 console.print(f"[red]✗ {message}[/red]")
 
-            # Rate limiting - be conservative with API calls
-            if i < len(repo_list):
-                time.sleep(2)
+            # Rate limiting between API calls
+            if i < len(repo_list) and self.rate_limit > 0:
+                time.sleep(self.rate_limit)
 
         return results
