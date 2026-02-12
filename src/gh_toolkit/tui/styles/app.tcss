@@ -207,3 +207,189 @@ ListView > ListItem.--highlight {
     padding: 1 0;
     color: $text;
 }
+
+/* ============================================ */
+/* Help Screen Styles                           */
+/* ============================================ */
+
+HelpScreen {
+    align: center middle;
+}
+
+.help-container {
+    width: 80;
+    max-width: 90%;
+    height: 80%;
+    background: $surface;
+    border: solid $primary;
+    padding: 0;
+}
+
+.help-title {
+    text-style: bold;
+    text-align: center;
+    padding: 1;
+    background: $primary;
+    color: $text;
+}
+
+#help-scroll {
+    height: 100%;
+    padding: 1 2;
+}
+
+.help-content {
+    padding: 0;
+}
+
+/* ============================================ */
+/* Action Modal Styles                          */
+/* ============================================ */
+
+ActionModal {
+    align: center middle;
+}
+
+.action-modal {
+    width: 70;
+    max-width: 90%;
+    height: auto;
+    max-height: 85%;
+    background: $surface;
+    border: solid $primary;
+    padding: 0;
+}
+
+.modal-title {
+    text-style: bold;
+    text-align: center;
+    padding: 1;
+    background: $primary;
+    color: $text;
+}
+
+.modal-scope {
+    padding: 1;
+    background: $surface-darken-1;
+    border-bottom: solid $primary;
+}
+
+.action-form {
+    height: auto;
+    max-height: 60%;
+    padding: 1 2;
+}
+
+.section-header {
+    margin-top: 1;
+    margin-bottom: 0;
+    color: $secondary;
+}
+
+.section-header.hidden {
+    display: none;
+}
+
+.field-row {
+    height: auto;
+    margin: 0;
+    padding: 0;
+}
+
+.field-label {
+    width: 15;
+    padding: 0 1;
+}
+
+.model-select {
+    width: auto;
+}
+
+.style-select {
+    width: auto;
+}
+
+.rules-select {
+    width: auto;
+}
+
+.hidden-option {
+    display: none;
+}
+
+.modal-buttons {
+    height: auto;
+    padding: 1;
+    border-top: solid $primary;
+    align: center middle;
+}
+
+.modal-buttons Button {
+    margin: 0 1;
+}
+
+/* Checkbox styling in modals */
+ActionModal Checkbox {
+    margin: 0;
+    padding: 0;
+    height: auto;
+}
+
+ActionModal Input {
+    width: 1fr;
+}
+
+/* RadioSet styling */
+RadioSet {
+    height: auto;
+    layout: horizontal;
+    background: transparent;
+    border: none;
+}
+
+RadioButton {
+    height: auto;
+    padding: 0 1;
+    background: transparent;
+}
+
+/* ============================================ */
+/* Results Modal Styles                         */
+/* ============================================ */
+
+ResultsScreen {
+    align: center middle;
+}
+
+.results-modal {
+    width: 70;
+    max-width: 90%;
+    height: 70%;
+    background: $surface;
+    border: solid $primary;
+    padding: 0;
+}
+
+#results-scroll {
+    height: 100%;
+    padding: 1 2;
+}
+
+.results-content {
+    padding: 0;
+}
+
+.results-modal Button {
+    margin: 1;
+    width: auto;
+    align: center middle;
+}
+
+/* ============================================ */
+/* Selection Indicators                         */
+/* ============================================ */
+
+/* Selected items in lists */
+ListView > ListItem.selected {
+    background: $primary-darken-2;
+}

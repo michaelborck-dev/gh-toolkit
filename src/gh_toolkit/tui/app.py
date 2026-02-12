@@ -65,11 +65,9 @@ class GhToolkitApp(App[None]):
 
     def action_help(self) -> None:
         """Show help information."""
-        self.notify(
-            "Navigation: ↑↓ Move | Enter Select | Esc Back | q Quit",
-            title="Help",
-            timeout=5,
-        )
+        from gh_toolkit.tui.screens.help import HelpScreen
+
+        self.push_screen(HelpScreen())
 
     def clear_org_cache(self, org_name: str) -> None:
         """Clear cached data for a specific organization."""
