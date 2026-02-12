@@ -54,6 +54,11 @@ class ActionOptions:
     # Health options
     health_rules: str = "default"
 
+    # README options
+    readme_model: str = "claude-3-haiku-20240307"
+    readme_force: bool = False
+    readme_min_quality: float = 0.5
+
     # Selected actions
     actions: list[str] = field(default_factory=list)
 
@@ -95,6 +100,7 @@ class ActionModal(ModalScreen[ActionResult | None]):
                 # Action selection
                 Static("[bold]Select Actions[/bold]", classes="section-header", markup=True),
                 Checkbox("Generate Descriptions", id="action-describe"),
+                Checkbox("Generate README", id="action-readme"),
                 Checkbox("Add Topics", id="action-tag"),
                 Checkbox("Generate Badges", id="action-badges"),
                 Checkbox("Health Check", id="action-health"),
@@ -167,6 +173,21 @@ class ActionModal(ModalScreen[ActionResult | None]):
                     classes="field-row",
                 ),
 
+                # README options
+                Static("[bold]README Options[/bold]", id="readme-section", classes="section-header hidden", markup=True),
+                Horizontal(
+                    Label("Model:", classes="field-label"),
+                    RadioSet(
+                        RadioButton("Haiku (fast)", id="readme-model-haiku", value=True),
+                        RadioButton("Sonnet (balanced)", id="readme-model-sonnet"),
+                        RadioButton("Opus (best)", id="readme-model-opus"),
+                        id="readme-model",
+                        classes="model-select",
+                    ),
+                    classes="field-row",
+                ),
+                Checkbox("Force update all READMEs", id="readme-force", classes="hidden-option"),
+
                 id="action-scroll",
                 classes="action-form",
             ),
@@ -191,6 +212,7 @@ class ActionModal(ModalScreen[ActionResult | None]):
         # Map action checkboxes to their option sections
         section_map = {
             "action-describe": ["describe-section", "describe-force"],
+            "action-readme": ["readme-section", "readme-force"],
             "action-tag": ["tag-section", "tag-force"],
             "action-badges": ["badges-section", "badges-apply"],
             "action-health": ["health-section"],
@@ -243,6 +265,7 @@ class ActionModal(ModalScreen[ActionResult | None]):
         actions = []
         action_checkboxes = [
             ("action-describe", "describe"),
+            ("action-readme", "readme"),
             ("action-tag", "tag"),
             ("action-badges", "badges"),
             ("action-health", "health"),
@@ -262,9 +285,12 @@ class ActionModal(ModalScreen[ActionResult | None]):
         model_map = {
             "model-haiku": "claude-3-haiku-20240307",
             "tag-model-haiku": "claude-3-haiku-20240307",
+            "readme-model-haiku": "claude-3-haiku-20240307",
             "model-sonnet": "claude-sonnet-4-20250514",
             "tag-model-sonnet": "claude-sonnet-4-20250514",
+            "readme-model-sonnet": "claude-sonnet-4-20250514",
             "model-opus": "claude-opus-4-20250514",
+            "readme-model-opus": "claude-opus-4-20250514",
         }
         try:
             radio_set = self.query_one(f"#{radio_set_id}", RadioSet)
@@ -358,6 +384,14 @@ class ActionModal(ModalScreen[ActionResult | None]):
         # Health options
         if "health" in actions:
             options["health_rules"] = self._get_health_rules()
+
+        # README options
+        if "readme" in actions:
+            options["readme_model"] = self._get_model_name("readme-model")
+            try:
+                options["readme_force"] = self.query_one("#readme-force", Checkbox).value
+            except Exception:
+                options["readme_force"] = False
 
         # Create result with first action (we'll handle multiple actions in executor)
         result = ActionResult(

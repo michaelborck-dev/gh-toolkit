@@ -45,6 +45,8 @@ class ActionExecutor:
         for action in actions:
             if action == "describe":
                 results.append(self._execute_describe(action_result))
+            elif action == "readme":
+                results.append(self._execute_readme(action_result))
             elif action == "tag":
                 results.append(self._execute_tag(action_result))
             elif action == "badges":
@@ -300,4 +302,45 @@ class ActionExecutor:
             skipped_count=0,
             results=results,
             dry_run=False,
+        )
+
+    def _execute_readme(self, action_result: ActionResult) -> ExecutionResult:
+        """Execute README generation."""
+        from gh_toolkit.core.github_client import GitHubClient
+
+        try:
+            from gh_toolkit.core.repo_readme_generator import RepoReadmeGenerator
+        except ImportError:
+            return ExecutionResult(
+                action="readme",
+                success_count=0,
+                error_count=1,
+                skipped_count=0,
+                results=[{"error": "RepoReadmeGenerator not available"}],
+                dry_run=action_result.dry_run,
+            )
+
+        client = GitHubClient(self.github_token)
+        model = action_result.options.get("readme_model", "claude-3-haiku-20240307")
+        generator = RepoReadmeGenerator(client, self.anthropic_key, 0.5, model)
+
+        results = generator.process_multiple_repositories(
+            action_result.repos,
+            action_result.dry_run,
+            action_result.options.get("readme_force", False),
+            0.5,  # min_quality threshold
+        )
+
+        success = len([r for r in results if r.get("status") == "updated"])
+        errors = len([r for r in results if r.get("status") in ("failed", "error")])
+        skipped = len([r for r in results if r.get("status") == "skipped"])
+        dry_run_count = len([r for r in results if r.get("status") == "dry_run"])
+
+        return ExecutionResult(
+            action="readme",
+            success_count=success + dry_run_count,
+            error_count=errors,
+            skipped_count=skipped,
+            results=results,
+            dry_run=action_result.dry_run,
         )

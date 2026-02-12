@@ -1509,3 +1509,275 @@ def _apply_badges_to_readme(
     else:
         console.print(f"[red]  ✗ Failed to update {readme_path}[/red]")
         return False
+
+
+def readme_repos(
+    repos_input: str = typer.Argument(
+        help="Repository (owner/repo), file with repo list, or 'username/*' for all user repos"
+    ),
+    token: str | None = typer.Option(
+        None, "--token", "-t", help="GitHub token (or set GITHUB_TOKEN env var)"
+    ),
+    anthropic_key: str | None = typer.Option(
+        None,
+        "--anthropic-key",
+        help="Anthropic API key for LLM generation (or set ANTHROPIC_API_KEY env var)",
+    ),
+    model: str = typer.Option(
+        "claude-3-haiku-20240307",
+        "--model",
+        "-m",
+        help="Anthropic model to use (e.g., claude-sonnet-4-20250514)",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Preview changes without updating repositories",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Update READMEs even if they pass quality checks",
+    ),
+    min_quality: float = typer.Option(
+        0.5,
+        "--min-quality",
+        "-q",
+        help="Quality threshold (0-1). READMEs below this will be updated (default: 0.5)",
+    ),
+    rate_limit: float = typer.Option(
+        0.5,
+        "--rate-limit",
+        "-r",
+        help="Seconds between API requests (default: 0.5)",
+    ),
+    output: str | None = typer.Option(
+        None, "--output", "-o", help="Save results to JSON file"
+    ),
+    update_tags: bool = typer.Option(
+        False,
+        "--update-tags",
+        help="After updating READMEs, run tag update on modified repos",
+    ),
+) -> None:
+    """Generate or update README files for GitHub repositories.
+
+    Analyzes repositories and generates professional README files using LLM.
+    Can create missing READMEs or update low-quality/placeholder ones.
+
+    Quality is assessed based on:
+    - Has proper title and description
+    - Has installation and usage sections
+    - Contains code examples
+    - Reasonable length (not just a placeholder)
+    - Multiple structured sections
+
+    Examples:
+        gh-toolkit repo readme user/repo --dry-run
+        gh-toolkit repo readme "user/*" --min-quality 0.6
+        gh-toolkit repo readme repos.txt --force --model claude-sonnet-4-20250514
+        gh-toolkit repo readme "user/*" --update-tags
+    """
+    from gh_toolkit.core.repo_readme_generator import RepoReadmeGenerator
+
+    try:
+        # Get tokens
+        github_token = token or os.environ.get("GITHUB_TOKEN")
+        if not github_token:
+            console.print(
+                "[red]GitHub token required. Set GITHUB_TOKEN env var or use --token[/red]"
+            )
+            raise typer.Exit(1)
+
+        anthropic_api_key = anthropic_key or os.environ.get("ANTHROPIC_API_KEY")
+        if not anthropic_api_key:
+            console.print(
+                "[yellow]Warning: No Anthropic API key. Will use template-based generation.[/yellow]"
+            )
+
+        client = GitHubClient(github_token)
+        generator = RepoReadmeGenerator(
+            client, anthropic_api_key, rate_limit, model
+        )
+
+        # Parse repository input
+        repo_list = _parse_readme_repos_input(repos_input, client)
+
+        if not repo_list:
+            console.print("[red]No repositories found to process[/red]")
+            raise typer.Exit(1)
+
+        console.print(f"\n[blue]Found {len(repo_list)} repositories to process[/blue]")
+        console.print(f"[blue]Using model: {model}[/blue]")
+        console.print(f"[blue]Quality threshold: {min_quality:.0%}[/blue]")
+
+        if dry_run:
+            console.print("[yellow]DRY RUN MODE - No changes will be made[/yellow]")
+        if force:
+            console.print("[yellow]FORCE MODE - Will update all READMEs[/yellow]")
+
+        # Process repositories
+        results = generator.process_multiple_repositories(
+            repo_list, dry_run, force, min_quality
+        )
+
+        # Show summary
+        _show_readme_summary(results, dry_run)
+
+        # Get list of updated repos for tag update
+        updated_repos = [
+            (r["owner"], r["repo"])
+            for r in results
+            if r["status"] in ("updated", "dry_run")
+        ]
+
+        # Save results if requested
+        if output:
+            _save_readme_results(results, output)
+
+        # Update tags for modified repos if requested
+        if update_tags and updated_repos and not dry_run:
+            console.print(f"\n[blue]Updating tags for {len(updated_repos)} modified repositories...[/blue]")
+            _update_tags_for_repos(updated_repos, client, anthropic_api_key, model, rate_limit)
+
+        # Return the list of updated repos (useful for chaining)
+        return updated_repos  # type: ignore[return-value]
+
+    except KeyboardInterrupt as e:
+        console.print("\n[yellow]Operation cancelled by user[/yellow]")
+        raise typer.Exit(1) from e
+    except Exception as e:
+        console.print(f"[red]Unexpected error: {e}[/red]")
+        raise typer.Exit(1) from e
+
+
+def _parse_readme_repos_input(
+    repos_input: str, client: GitHubClient
+) -> list[tuple[str, str]]:
+    """Parse repository input and return list of (owner, repo) tuples."""
+    repos: list[tuple[str, str]] = []
+
+    # Check if it's a file
+    if Path(repos_input).exists():
+        console.print(f"[blue]Loading repositories from file: {repos_input}[/blue]")
+        with open(repos_input, encoding="utf-8") as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    try:
+                        parts = line.split("/")
+                        if len(parts) == 2:
+                            repos.append((parts[0], parts[1]))
+                        else:
+                            console.print(f"[yellow]Line {line_num}: Invalid format[/yellow]")
+                    except Exception as e:
+                        console.print(f"[yellow]Line {line_num}: {e}[/yellow]")
+        return repos
+
+    # Check if it's a wildcard pattern (user/*)
+    if repos_input.endswith("/*"):
+        owner = repos_input[:-2]
+        console.print(f"[blue]Fetching all repositories for user/org: {owner}[/blue]")
+        try:
+            # Check if owner is the authenticated user - if so, include private repos
+            authenticated_user = client.get_authenticated_user()
+            if authenticated_user and authenticated_user.lower() == owner.lower():
+                console.print("[dim]Including private repositories[/dim]")
+                user_repos = client.get_user_repos(
+                    None, visibility="all", affiliation="owner"
+                )
+            else:
+                user_repos = client.get_user_repos(owner)
+            repos = [(owner, repo["name"]) for repo in user_repos]
+            console.print(f"[green]Found {len(repos)} repositories for {owner}[/green]")
+            return repos
+        except Exception as e:
+            console.print(f"[red]Error fetching repositories for {owner}: {e}[/red]")
+            return []
+
+    # Single repository
+    if "/" in repos_input:
+        parts = repos_input.split("/")
+        if len(parts) == 2:
+            return [(parts[0], parts[1])]
+
+    console.print(f"[red]Invalid input format: {repos_input}[/red]")
+    return []
+
+
+def _show_readme_summary(results: list[dict[str, Any]], dry_run: bool) -> None:
+    """Display summary of README processing results."""
+    updated = sum(1 for r in results if r["status"] == "updated")
+    would_update = sum(1 for r in results if r["status"] == "dry_run")
+    skipped = sum(1 for r in results if r["status"] == "skipped")
+    failed = sum(1 for r in results if r["status"] in ("failed", "error"))
+
+    console.print("\n[bold]SUMMARY[/bold]")
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Status")
+    table.add_column("Count")
+    table.add_column("Description")
+
+    if dry_run:
+        table.add_row("Would Update", str(would_update), "READMEs that would be updated")
+    else:
+        table.add_row("Updated", str(updated), "READMEs successfully updated")
+
+    table.add_row("Skipped", str(skipped), "READMEs already good quality")
+    table.add_row("Failed", str(failed), "Failed to process")
+    table.add_row("Total", str(len(results)), "Repositories processed")
+
+    console.print(table)
+
+    # Show failed repos
+    failed_repos = [r for r in results if r["status"] in ("failed", "error")]
+    if failed_repos:
+        console.print("\n[red]Failed repositories:[/red]")
+        for r in failed_repos:
+            error = r.get("error", "Unknown error")
+            console.print(f"  - {r['owner']}/{r['repo']}: {error}")
+
+
+def _save_readme_results(results: list[dict[str, Any]], output_path: str) -> None:
+    """Save README processing results to JSON file."""
+    import json
+
+    # Remove generated content from saved results (too large)
+    save_results = []
+    for r in results:
+        save_r = {k: v for k, v in r.items() if k != "generated_content"}
+        save_results.append(save_r)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(save_results, f, indent=2)
+
+    console.print(f"\n[green]Results saved to {output_path}[/green]")
+
+
+def _update_tags_for_repos(
+    repos: list[tuple[str, str]],
+    client: GitHubClient,
+    anthropic_key: str | None,
+    model: str,
+    rate_limit: float,
+) -> None:
+    """Update tags for a list of repositories."""
+    from gh_toolkit.core.topic_tagger import TopicTagger
+
+    tagger = TopicTagger(client, anthropic_key, rate_limit, model)
+
+    console.print("")
+    for i, (owner, repo) in enumerate(repos, 1):
+        console.print(f"[blue]Tagging {i}/{len(repos)}: {owner}/{repo}[/blue]")
+        try:
+            result = tagger.process_repository(owner, repo, dry_run=False, force=True)
+            if result.get("status") == "updated":
+                topics = result.get("new_topics", [])
+                console.print(f"[green]  ✓ Updated topics: {', '.join(topics[:5])}[/green]")
+            elif result.get("status") == "skipped":
+                console.print("[dim]  Skipped (already has topics)[/dim]")
+            else:
+                console.print(f"[yellow]  {result.get('status', 'unknown')}[/yellow]")
+        except Exception as e:
+            console.print(f"[red]  ✗ Failed: {e}[/red]")

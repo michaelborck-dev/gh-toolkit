@@ -435,6 +435,52 @@ class GitHubClient:
         except Exception:
             return {}
 
+    def get_repo(self, owner: str, repo: str) -> dict[str, Any] | None:
+        """Get repository metadata.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+
+        Returns:
+            Repository data or None if not found
+        """
+        endpoint = f"/repos/{owner}/{repo}"
+        try:
+            response = self._make_request("GET", endpoint)
+            return response.json()
+        except Exception:
+            return None
+
+    def get_repo_tree(
+        self, owner: str, repo: str, branch: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Get repository file tree.
+
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            branch: Branch name (default: repo's default branch)
+
+        Returns:
+            List of tree items (files and directories)
+        """
+        # First get default branch if not specified
+        if not branch:
+            repo_data = self.get_repo(owner, repo)
+            if repo_data:
+                branch = repo_data.get("default_branch", "main")
+            else:
+                branch = "main"
+
+        endpoint = f"/repos/{owner}/{repo}/git/trees/{branch}"
+        try:
+            response = self._make_request("GET", endpoint, params={"recursive": "1"})
+            data = response.json()
+            return data.get("tree", [])
+        except Exception:
+            return []
+
     def get_repo_pages_info(self, owner: str, repo: str) -> dict[str, Any] | None:
         """Get GitHub Pages information for repository.
 
